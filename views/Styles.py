@@ -32,7 +32,7 @@ BUTTON_STYLE = """
         color: white;
         border-radius: 10px;
         padding: 10px 20px;
-        font-size: 14px;
+        font-size: 20px;
         border: none;
     }
     QPushButton:hover {

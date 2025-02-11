@@ -1,20 +1,28 @@
 from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QFrame
 from PyQt6.QtGui import QFont
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from .Styles import SIDEBAR_STYLE
 
 class Menu(QListWidget):
+    page_changed = pyqtSignal(int)  # Signal pour indiquer un changement de page
+
     def __init__(self):
         super().__init__()
         self.setFixedWidth(170)
         self.setFrameStyle(QFrame.Shape.NoFrame)
         self.setStyleSheet(SIDEBAR_STYLE)
 
-        labels = ["Label xxx", "Label xxx", "label yyy", "Label xxx", "Label xxx"]
-        for text in labels:
+        # Définition des pages
+        self.labels = ["Home Page", "Model Parameters", "Generate Data",
+                       "Analysis Parameters", "Analysis", "About"]
+
+        for text in self.labels:
             item = QListWidgetItem(text)
-            font = QFont("Arial", 13, QFont.Weight.DemiBold)
+            font = QFont("Montserrat", 10, QFont.Weight.DemiBold)
             item.setFont(font)
-            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.addItem(item)
-        self.setCurrentRow(2)
+
+        self.setCurrentRow(0)  # Page d'accueil par défaut
+
+        # Connecter la sélection au changement de page
+        self.currentRowChanged.connect(self.page_changed.emit)
