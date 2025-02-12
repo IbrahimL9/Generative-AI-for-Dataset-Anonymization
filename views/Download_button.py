@@ -110,7 +110,7 @@ class DownloadButton(QWidget):
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     self.json_data = json.load(f)
-                self.button.setText("JSON file loaded")
+                self.button.setText("File loaded")
                 self.showMessage(
                     f"{file_path.split('/')[-1]} has been loaded successfully",
                     success=True
@@ -125,7 +125,6 @@ class DownloadButton(QWidget):
             self.button.setText(self.default_text)
 
     def showMessage(self, message, success=True):
-        """Affiche un message sous le bouton pendant 5 secondes."""
         self.message_label.setText(message)
         if success:
             self.message_label.setStyleSheet(

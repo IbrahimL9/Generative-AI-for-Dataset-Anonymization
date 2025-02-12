@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QFrame
+from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QFrame, QSizePolicy
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, pyqtSignal
 from .Styles import SIDEBAR_STYLE
@@ -11,6 +11,7 @@ class Menu(QListWidget):
         self.setFixedWidth(170)
         self.setFrameStyle(QFrame.Shape.NoFrame)
         self.setStyleSheet(SIDEBAR_STYLE)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
 
         # Définition des pages
         self.labels = ["Home Page", "Model Parameters", "Generate Data",
