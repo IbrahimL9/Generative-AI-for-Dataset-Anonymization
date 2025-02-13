@@ -31,14 +31,21 @@ class AnonymizationApp(QWidget):
         self.stacked_widget = QStackedWidget()
         main_layout.addWidget(self.stacked_widget)
 
+        # ✅ Créer le bouton de téléchargement
+        self.download_button = DownloadButton('Download File')
+
+        # ✅ Passer le bouton de téléchargement à HomePage et ModelParametersPage
+        self.home_page = HomePage(self.download_button)
+        self.generate_data_page = GenerateDataPage(self.download_button)
+
         # Ajouter les pages au QStackedWidget
         self.pages = [
-            HomePage(),                 # Index 0 - Page d'accueil
-            ModelParametersPage(),      # Index 1 - Paramètres du modèle
-            GenerateDataPage(),         # Index 2 - Génération de données
-            AnalysisParametersPage(),   # Index 3 - Paramètres d'analyse
-            AnalysisPage(),             # Index 4 - Analyse
-            AboutPage()                 # Index 5 - À propos
+            self.home_page,                 # Index 0 - Page d'accueil
+            ModelParametersPage(),     # Index 1 - Paramètres du modèle
+            self.generate_data_page,             # Index 2 - Génération de données
+            AnalysisParametersPage(),       # Index 3 - Paramètres d'analyse
+            AnalysisPage(),                 # Index 4 - Analyse
+            AboutPage()                     # Index 5 - À propos
         ]
 
         for page in self.pages:

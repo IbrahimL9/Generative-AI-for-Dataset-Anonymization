@@ -1,9 +1,11 @@
 import json
 from PyQt6.QtWidgets import QWidget, QPushButton, QFileDialog, QLabel, QVBoxLayout
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from .Styles import BUTTON_STYLE
 
 class DownloadButton(QWidget):
+    file_loaded = pyqtSignal()  # Signal émis lorsque le fichier est chargé
+
     def __init__(self, text, parent=None):
         super().__init__(parent)
         self.default_text = text
@@ -87,11 +89,13 @@ class DownloadButton(QWidget):
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         self.json_data = json.load(f)
-                    self.button.setText("File loaded !")
+                    self.button.setText("File loaded!")
                     self.showMessage(
                         f"{file_path.split('/')[-1]} has been loaded successfully",
                         success=True
                     )
+                    self.file_loaded.emit()  # Émettre le signal lorsque le fichier est chargé
+                    print("Signal file_loaded émis.")
                     event.acceptProposedAction()
                 except Exception as e:
                     self.button.setText("Load error")
@@ -115,6 +119,8 @@ class DownloadButton(QWidget):
                     f"{file_path.split('/')[-1]} has been loaded successfully",
                     success=True
                 )
+                self.file_loaded.emit()  # Émettre le signal lorsque le fichier est chargé
+                print("Signal file_loaded émis.")
             except Exception as e:
                 self.button.setText("Load error")
                 self.showMessage(

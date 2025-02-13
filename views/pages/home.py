@@ -4,11 +4,11 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import Qt, QSize, QTimer
-from views.Download_button import DownloadButton  # Importer le bouton de téléchargement
 
 class HomePage(QWidget):
-    def __init__(self):
+    def __init__(self, download_button):
         super().__init__()
+        self.download_button = download_button
         self.initUI()
 
         # Créer un timer qui vérifie périodiquement si un fichier a été téléchargé.
@@ -37,7 +37,6 @@ class HomePage(QWidget):
         button_layout.addStretch()
 
         # Bouton de téléchargement (restant au centre)
-        self.download_button = DownloadButton("Download File")
         button_layout.addWidget(self.download_button)
 
         # Espacement entre les boutons
@@ -48,7 +47,6 @@ class HomePage(QWidget):
         # Construction du chemin absolu vers l'icône "eye.png"
         current_dir = os.path.dirname(os.path.abspath(__file__))
         eye_icon_path = os.path.join(current_dir, "..", "eye.png")
-        print("Chemin de l'icône eye:", eye_icon_path)  # Pour vérifier que le chemin est correct
         self.view_button.setIcon(QIcon(eye_icon_path))
         self.view_button.setIconSize(QSize(32, 32))
         # Supprimer les bordures du bouton "œil"
@@ -64,7 +62,6 @@ class HomePage(QWidget):
         self.stats_button = QToolButton()
         # Construction du chemin absolu vers l'icône "statistiques.png"
         stats_icon_path = os.path.join(current_dir, "..", "statistiques.png")
-        print("Chemin de l'icône statistiques:", stats_icon_path)  # Vérification du chemin
         self.stats_button.setIcon(QIcon(stats_icon_path))
         self.stats_button.setIconSize(QSize(32, 32))
         self.stats_button.setStyleSheet("QToolButton { border: none; }")
