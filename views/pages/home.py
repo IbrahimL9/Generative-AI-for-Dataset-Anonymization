@@ -7,7 +7,6 @@ from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import Qt, QSize, QTimer, pyqtSignal
 from collections import Counter
 from datetime import datetime
-from views.Download_button import DownloadButton
 
 class HomePage(QWidget):
     fileDownloaded = pyqtSignal()
@@ -83,7 +82,7 @@ class HomePage(QWidget):
         self.stats_container.setStyleSheet("")
         self.setLayout(layout)
 
-        # Désactiver par défaut les boutons "œil" et "stats"
+        # Désactiver par défaut les boutons afficher stats et data
         self.view_button.setEnabled(False)
         self.stats_button.setEnabled(False)
 

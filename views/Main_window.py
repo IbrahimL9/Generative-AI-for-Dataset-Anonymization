@@ -10,6 +10,7 @@ from views.pages.analysis import AnalysisPage
 from views.pages.about import AboutPage
 from views.Download_button import DownloadButton
 
+
 class AnonymizationApp(QWidget):
     def __init__(self):
         super().__init__()
@@ -25,10 +26,15 @@ class AnonymizationApp(QWidget):
         main_layout.setContentsMargins(0, 0, 10, 0)
         main_layout.setSpacing(40)
 
+
         # Sidebar (Menu)
         self.menu = Menu()
         main_layout.addWidget(self.menu)
+
+
         self.download_button = DownloadButton('Download File')
+        self.download_button.file_loaded.connect(self.enableMenu)
+
 
         # Passer la même instance du bouton à HomePage et GenerateDataPage
         self.home_page = HomePage(self.download_button)
@@ -94,3 +100,6 @@ class AnonymizationApp(QWidget):
         current_index = self.stacked_widget.currentIndex()
         prev_index = (current_index - 1) % len(self.pages)
         self.stacked_widget.setCurrentIndex(prev_index)
+
+    def enableMenu(self):
+        self.menu.setEnabled(True)

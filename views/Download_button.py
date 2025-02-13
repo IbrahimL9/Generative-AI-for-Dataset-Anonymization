@@ -92,11 +92,10 @@ class DownloadButton(QWidget):
                         self.json_data = json.load(f)
                     self.button.setText("File loaded !")
                     self.showMessage(
-                        f"{file_path.split('/')[-1]} has been loaded successfully",
+                        f"{file_path.split('/')[-1]} has been loaded successfully !",
                         success=True
                     )
                     self.file_loaded.emit()
-                    print("Signal file_loaded émis.")
                     event.acceptProposedAction()
                 except Exception as e:
                     self.button.setText("Load error")
@@ -115,7 +114,7 @@ class DownloadButton(QWidget):
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     self.json_data = json.load(f)
-                self.button.setText("File loaded")
+                self.button.setText("File loaded !")
                 self.showMessage(
                     f"{file_path.split('/')[-1]} has been loaded successfully",
                     success=True

@@ -25,6 +25,9 @@ class Menu(QListWidget):
 
         self.setCurrentRow(0)  # Page d'accueil par défaut
 
+        # Desactiver le menu si aucun fichier telecharger
+        self.setEnabled(False)
+
         # Connecter la sélection au changement de page
         self.currentRowChanged.connect(self.page_changed.emit)
 
