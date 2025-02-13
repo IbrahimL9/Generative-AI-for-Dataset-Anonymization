@@ -1,9 +1,12 @@
 import json
 from PyQt6.QtWidgets import QWidget, QPushButton, QFileDialog, QLabel, QVBoxLayout
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from .Styles import BUTTON_STYLE
 
+
+
 class DownloadButton(QWidget):
+    file_loaded  = pyqtSignal()
     def __init__(self, text, parent=None):
         super().__init__(parent)
         self.default_text = text
@@ -92,6 +95,7 @@ class DownloadButton(QWidget):
                         f"{file_path.split('/')[-1]} has been loaded successfully",
                         success=True
                     )
+                    self.file_loaded.emit()
                     event.acceptProposedAction()
                 except Exception as e:
                     self.button.setText("Load error")
@@ -115,6 +119,7 @@ class DownloadButton(QWidget):
                     f"{file_path.split('/')[-1]} has been loaded successfully",
                     success=True
                 )
+                self.file_loaded.emit()
             except Exception as e:
                 self.button.setText("Load error")
                 self.showMessage(

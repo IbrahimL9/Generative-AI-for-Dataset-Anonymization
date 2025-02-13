@@ -27,3 +27,12 @@ class Menu(QListWidget):
 
         # Connecter la sélection au changement de page
         self.currentRowChanged.connect(self.page_changed.emit)
+
+    def setMenuEnabled(self, enabled: bool):
+        for index in range(self.count()):
+            item = self.item(index)
+            if item.text() != "About":
+                if enabled:
+                    item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEnabled)
+                else:
+                    item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)

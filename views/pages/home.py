@@ -8,46 +8,45 @@ from PyQt6.QtCore import Qt, QSize, QTimer
 from views.Download_button import DownloadButton
 from collections import Counter
 from datetime import datetime
+from PyQt6.QtCore import pyqtSignal
+from views.Download_button import DownloadButton
+
 
 
 class HomePage(QWidget):
-    def __init__(self):
+    fileDownloaded = pyqtSignal()
+    def __init__(self,download_button):
         super().__init__()
+        self.download_button = download_button
         self.initUI()
         self.json_data = None
 
         # Créer un timer qui vérifie périodiquement si un fichier a été téléchargé.
         self.checkTimer = QTimer(self)
         self.checkTimer.timeout.connect(self.updateViewButtonState)
-        self.checkTimer.start(500)  # Vérifie toutes les 500 ms
+        self.checkTimer.start(500)
 
     def initUI(self):
         layout = QVBoxLayout()
 
-        # Espacement en haut
         layout.addSpacing(30)
 
-        # Titre de l'application
         title = QLabel("Generative AI for Dataset Anonymization")
         title.setFont(QFont("Montserrat", 16, QFont.Weight.Bold))
 
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # Espace flexible pour positionner les widgets vers le haut
         layout.addStretch(1)
 
-        # Layout horizontal pour les boutons
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        # Bouton de téléchargement
         self.download_button = DownloadButton("Download File")
         button_layout.addWidget(self.download_button)
 
         button_layout.addSpacing(10)
 
-        # Bouton "œil" pour visualiser le fichier généré
         self.view_button = QToolButton()
         current_dir = os.path.dirname(os.path.abspath(__file__))
         eye_icon_path = os.path.join(current_dir, "..", "eye.png")
@@ -60,7 +59,6 @@ class HomePage(QWidget):
 
         button_layout.addSpacing(10)
 
-        # Bouton "Stats" pour afficher les statistiques du fichier généré
         self.stats_button = QToolButton()
         stats_icon_path = os.path.join(current_dir, "..", "statistiques.png")
         self.stats_button.setIcon(QIcon(stats_icon_path))
@@ -96,6 +94,7 @@ class HomePage(QWidget):
             self.view_button.setEnabled(True)
             self.stats_button.setEnabled(True)
             self.checkTimer.stop()
+            self.fileDownloaded.emit()  # Signaler que le fichier est téléchargé
         else:
             self.view_button.setEnabled(False)
             self.stats_button.setEnabled(False)

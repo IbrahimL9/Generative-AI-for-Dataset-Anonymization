@@ -8,6 +8,7 @@ from views.pages.generate_data import GenerateDataPage
 from views.pages.analysis_params import AnalysisParametersPage
 from views.pages.analysis import AnalysisPage
 from views.pages.about import AboutPage
+from views.Download_button import DownloadButton
 
 
 class AnonymizationApp(QWidget):
@@ -28,6 +29,11 @@ class AnonymizationApp(QWidget):
         # Sidebar (Menu)
         self.menu = Menu()
         main_layout.addWidget(self.menu)
+        self.download_button = DownloadButton('Download File')
+
+        # ✅ Passer le bouton de téléchargement à HomePage et ModelParametersPage
+        self.home_page = HomePage(self.download_button)
+        self.generate_data_page = GenerateDataPage(self.download_button)
 
         # Bouton "prev" placé juste après le menu
         self.prev_button = QPushButton()
@@ -44,9 +50,9 @@ class AnonymizationApp(QWidget):
 
         # Ajout des pages
         self.pages = [
-            HomePage(),
+            self.home_page,
             ModelParametersPage(),
-            GenerateDataPage(),
+            self.generate_data_page,
             AnalysisParametersPage(),
             AnalysisPage(),
             AboutPage()
@@ -89,5 +95,4 @@ class AnonymizationApp(QWidget):
         current_index = self.stacked_widget.currentIndex()
         prev_index = (current_index - 1) % len(self.pages)
         self.stacked_widget.setCurrentIndex(prev_index)
-
 
