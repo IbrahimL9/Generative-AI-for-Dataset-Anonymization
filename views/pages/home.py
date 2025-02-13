@@ -4,22 +4,21 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem, QHeaderView, QCheckBox, QComboBox, QSpinBox, QGroupBox, QPushButton, QSpacerItem, QSizePolicy
 )
 from PyQt6.QtGui import QFont, QIcon
-from PyQt6.QtCore import Qt, QSize, QTimer
-from views.Download_button import DownloadButton
+from PyQt6.QtCore import Qt, QSize, QTimer, pyqtSignal
 from collections import Counter
 from datetime import datetime
-from PyQt6.QtCore import pyqtSignal
 from views.Download_button import DownloadButton
-
-
 
 class HomePage(QWidget):
     fileDownloaded = pyqtSignal()
-    def __init__(self,download_button):
+
+    def __init__(self, download_button):
         super().__init__()
+        # Utiliser l'instance partagée passée en paramètre
         self.download_button = download_button
-        self.initUI()
         self.json_data = None
+
+        self.initUI()
 
         # Créer un timer qui vérifie périodiquement si un fichier a été téléchargé.
         self.checkTimer = QTimer(self)
@@ -33,7 +32,6 @@ class HomePage(QWidget):
 
         title = QLabel("Generative AI for Dataset Anonymization")
         title.setFont(QFont("Montserrat", 16, QFont.Weight.Bold))
-
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -42,7 +40,7 @@ class HomePage(QWidget):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        self.download_button = DownloadButton("Download File")
+        # Utiliser directement l'instance de DownloadButton passée au constructeur
         button_layout.addWidget(self.download_button)
 
         button_layout.addSpacing(10)
@@ -100,7 +98,6 @@ class HomePage(QWidget):
             self.stats_button.setEnabled(False)
 
     ######### VIEW DATA ##########
-
     def view_generated_file(self):
         if hasattr(self.download_button, 'json_data') and self.download_button.json_data is not None:
             events = self.download_button.json_data.get("events", [])
@@ -126,20 +123,20 @@ class HomePage(QWidget):
             # Combobox pour sélectionner le verbe
             self.verb_combobox = QComboBox()
             self.verb_combobox.setVisible(False)
-            self.verb_combobox.setStyleSheet("border: 2px solid #000; padding: 5px;")  # Ajout de la bordure
+            self.verb_combobox.setStyleSheet("border: 2px solid #000; padding: 5px;")
             filter_group_layout.addWidget(QLabel("Verb:"))
             filter_group_layout.addWidget(self.verb_combobox)
 
             # Checkbox pour le filtre sur l'acteur
             self.actor_checkbox = QCheckBox("Filter by Actor")
-            self.actor_checkbox.setStyleSheet("border: 2px solid #000; padding: 5px;")  # Ajout de la bordure
+            self.actor_checkbox.setStyleSheet("border: 2px solid #000; padding: 5px;")
             self.actor_checkbox.stateChanged.connect(self.toggle_actor_combobox)
             filter_group_layout.addWidget(self.actor_checkbox)
 
             # Combobox pour sélectionner l'acteur
             self.actor_combobox = QComboBox()
             self.actor_combobox.setVisible(False)
-            self.actor_combobox.setStyleSheet("border: 2px solid #000; padding: 5px;")  # Ajout de la bordure
+            self.actor_combobox.setStyleSheet("border: 2px solid #000; padding: 5px;")
             filter_group_layout.addWidget(QLabel("Actor:"))
             filter_group_layout.addWidget(self.actor_combobox)
 
@@ -149,12 +146,12 @@ class HomePage(QWidget):
             self.number_input.setMinimum(0)
             self.number_input.setMaximum(1000)
             self.number_input.setValue(0)
-            self.number_input.setStyleSheet("border: 2px solid #000; padding: 5px;")  # Ajout de la bordure
+            self.number_input.setStyleSheet("border: 2px solid #000; padding: 5px;")
             filter_group_layout.addWidget(self.number_input)
 
             # Bouton pour appliquer le filtre
             filter_button = QPushButton("Apply Filter")
-            filter_button.setStyleSheet("border: 2px solid #000; padding: 5px;")  # Ajout de la bordure
+            filter_button.setStyleSheet("border: 2px solid #000; padding: 5px;")
             filter_button.clicked.connect(self.appliquer_filtre)
             filter_group_layout.addWidget(filter_button)
 
@@ -165,7 +162,7 @@ class HomePage(QWidget):
             self.table.setRowCount(len(events))
             self.table.setColumnCount(4)
             self.table.setHorizontalHeaderLabels(["Timestamp", "Actor", "Verb", "Object"])
-            self.table.setStyleSheet("border: 2px solid #000;")  # Ajout de la bordure
+            self.table.setStyleSheet("border: 2px solid #000;")
             for row, event in enumerate(events):
                 self.table.setItem(row, 0, QTableWidgetItem(event.get("timestamp", "")))
                 self.table.setItem(row, 1, QTableWidgetItem(event.get("actor", "")))
@@ -173,7 +170,7 @@ class HomePage(QWidget):
                 self.table.setItem(row, 3, QTableWidgetItem(event.get("object", "")))
 
             self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-            self.table.setStyleSheet("QTableWidget { font-size: 14px; border: 2px solid #000; }")  # Ajout de la bordure
+            self.table.setStyleSheet("QTableWidget { font-size: 14px; border: 2px solid #000; }")
             table_layout.addWidget(self.table)
 
             table_dialog.exec()
@@ -182,7 +179,7 @@ class HomePage(QWidget):
             dialog.setWindowTitle("No Data Available")
             dialog_layout = QVBoxLayout(dialog)
             message = QLabel("No generated file available. Please download a file first.")
-            message.setStyleSheet("border: 2px solid #000; padding: 10px;")  # Ajout de la bordure
+            message.setStyleSheet("border: 2px solid #000; padding: 10px;")
             dialog_layout.addWidget(message)
             dialog.exec()
 
@@ -246,9 +243,6 @@ class HomePage(QWidget):
             self.table.setItem(row, 3, QTableWidgetItem(event.get("object", "")))
 
     ######### VIEW STATS ##########
-
-    from PyQt6.QtWidgets import QSpacerItem, QSizePolicy
-
     def view_statistics(self):
         try:
             if self.stats_container.isVisible():
@@ -299,15 +293,15 @@ class HomePage(QWidget):
 
                 # Supprimer la bordure du conteneur et ajuster les marges
                 self.stats_container.setStyleSheet("border: none; padding: 5px;")
-                self.stats_container_layout.setContentsMargins(10, 5, 10, 5)  # ✅ Réduction des marges
+                self.stats_container_layout.setContentsMargins(10, 5, 10, 5)
 
                 # Titre principal
                 title_label = QLabel("STATISTICS")
                 title_label.setFont(QFont("Montserrat", 18, QFont.Weight.Bold))
                 title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                title_label.setStyleSheet("color: black; margin-bottom: 5px;")  # ✅ Réduction de l'espace sous le titre
+                title_label.setStyleSheet("color: black; margin-bottom: 5px;")
 
-                # 📌 **Statistiques générales (Affichées à droite)**
+                # Statistiques générales
                 general_stats_text = QLabel(
                     f"🔹 **Total Events:** {total_events}\n"
                     f"🔹 **Unique Actors:** {num_actors}\n"
@@ -321,7 +315,7 @@ class HomePage(QWidget):
                 general_stats_text.setAlignment(Qt.AlignmentFlag.AlignLeft)
                 general_stats_text.setStyleSheet("font-size: 14px; color: black;")
 
-                # 📊 **Statistiques détaillées (Affichées à gauche)**
+                # Statistiques détaillées
                 detailed_stats_text = QLabel(
                     f"📌 **Events per Actor:**\n"
                     f"   - Average: {avg_events_per_actor:.2f}\n"
@@ -336,33 +330,30 @@ class HomePage(QWidget):
                 detailed_stats_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 detailed_stats_text.setStyleSheet("font-size: 14px; color: black;")
 
-                # **Créer un layout horizontal pour séparer les stats en deux colonnes**
+                # Layout horizontal pour séparer les stats
                 stats_layout = QHBoxLayout()
 
-
-                # Layout de gauche (Acteurs et Verbes)
+                # Layout de gauche (détails)
                 left_layout = QVBoxLayout()
                 left_layout.addWidget(detailed_stats_text)
-                left_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)  # ✅ Centrer le contenu
+                left_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-                # Layout de droite (Statistiques générales)
+                # Layout de droite (général)
                 right_layout = QVBoxLayout()
                 right_layout.addWidget(general_stats_text)
-                right_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)  # ✅ Aligné à gauche
+                right_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-                # Ajouter les deux sections au layout principal
-                stats_layout.addLayout(left_layout, 1)  # Colonne 1 (Gauche, maintenant bien centrée)
-                stats_layout.addSpacing(20)  # Espace entre les colonnes
-                stats_layout.addLayout(right_layout, 1)  # Colonne 2 (Droite)
+                stats_layout.addLayout(left_layout, 1)
+                stats_layout.addSpacing(20)
+                stats_layout.addLayout(right_layout, 1)
 
-                # ✅ **Ajouter un espace en bas pour pousser les stats vers le haut**
+                # Espacement en bas
                 bottom_spacer = QSpacerItem(160, 160, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
-                # Ajouter les éléments au layout principal
+                # Ajout au layout principal
                 self.stats_container_layout.addWidget(title_label)
                 self.stats_container_layout.addLayout(stats_layout)
-                self.stats_container_layout.addSpacerItem(
-                    bottom_spacer)
+                self.stats_container_layout.addSpacerItem(bottom_spacer)
                 self.stats_container.setVisible(True)
 
             else:

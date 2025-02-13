@@ -96,6 +96,7 @@ class DownloadButton(QWidget):
                         success=True
                     )
                     self.file_loaded.emit()
+                    print("Signal file_loaded émis.")
                     event.acceptProposedAction()
                 except Exception as e:
                     self.button.setText("Load error")
