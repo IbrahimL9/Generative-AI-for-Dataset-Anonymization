@@ -1,49 +1,52 @@
-from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSpacerItem, QSizePolicy
+from PyQt6.QtWidgets import (
+    QWidget, QLabel, QVBoxLayout, QHBoxLayout, QSizePolicy
+)
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 from collections import Counter
 from datetime import datetime
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+
 
 class Inspect(QWidget):
     def __init__(self, download_button):
         super().__init__()
         self.download_button = download_button
         self.initUI()
-        # Connecter le signal file_loaded pour mettre à jour les statistiques dès que le fichier est téléchargé
         self.download_button.file_loaded.connect(self.updateStatistics)
 
     def initUI(self):
         self.layout = QVBoxLayout()
 
-        # Titre de la page Inspect
-        title = QLabel("Statistics")
-        title.setFont(QFont("Montserrat", 18, QFont.Weight.Bold))
+        # Titre principal
+        title = QLabel("STATISTICS")
+        title.setFont(QFont("Montserrat", 24, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.layout.addWidget(title)
 
-        # Label pour afficher les statistiques
-        self.stats_label = QLabel()
-        self.stats_label.setFont(QFont("Montserrat", 14))
-        self.stats_label.setWordWrap(True)
-        self.stats_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.layout.addWidget(self.stats_label)
+        # Layout pour organiser les graphiques
+        self.graph_layout = QVBoxLayout()
 
-        # Spacer pour occuper l'espace restant
-        self.layout.addItem(QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        # Layout pour aligner les deux petits graphiques côte à côte
+        self.bottom_graph_layout = QHBoxLayout()
+
+        # Ajouter les layouts dans le principal
+        self.layout.addLayout(self.graph_layout)
+        self.layout.addLayout(self.bottom_graph_layout)
 
         self.setLayout(self.layout)
 
-        # Tentative initiale de mise à jour (au cas où les données seraient déjà disponibles)
         self.updateStatistics()
 
     def updateStatistics(self):
-        # Pour le débogage, vous pouvez activer la ligne suivante :
-        # print("updateStatistics appelée, json_data =", getattr(self.download_button, 'json_data', None))
+        # Nettoyer les anciens graphiques
+        self.clearStatistics()
+
         if hasattr(self.download_button, 'json_data') and self.download_button.json_data is not None:
             data = self.download_button.json_data
             events = data.get("events", [])
             if not events:
-                self.stats_label.setText("Aucun événement disponible pour afficher les statistiques.")
                 return
 
             # Extraction des statistiques
@@ -55,37 +58,84 @@ class Inspect(QWidget):
             num_verbs = len(unique_verbs)
             num_objects = len(unique_objects)
 
-            # Calculs complémentaires
             actor_counts = Counter(event.get("actor") for event in events)
             verb_counts = Counter(event.get("verb") for event in events)
+
+            min_events_per_actor = min(actor_counts.values(), default=0)
+            max_events_per_actor = max(actor_counts.values(), default=0)
             avg_events_per_actor = total_events / num_actors if num_actors > 0 else 0
+
+            min_events_per_verb = min(verb_counts.values(), default=0)
+            max_events_per_verb = max(verb_counts.values(), default=0)
             avg_events_per_verb = total_events / num_verbs if num_verbs > 0 else 0
 
-            # Analyse des timestamps
-            timestamps = []
-            for event in events:
-                ts = event.get("timestamp")
-                if ts:
-                    try:
-                        dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S")
-                        timestamps.append(dt)
-                    except Exception:
-                        pass
-            timestamps.sort()
-            first_event = timestamps[0].strftime("%Y-%m-%d %H:%M:%S") if timestamps else "N/A"
-            last_event = timestamps[-1].strftime("%Y-%m-%d %H:%M:%S") if timestamps else "N/A"
+            # Graphique principal en haut
+            overview_chart = self.create_bar_chart({
+                "Total Events": total_events,
+                "Unique Actors": num_actors,
+                "Unique Verbs": num_verbs,
+                "Unique Objects": num_objects
+            }, "Statistics Overview")
 
-            stats_text = (
-                f"Total Events: {total_events}\n"
-                f"Unique Actors: {num_actors}\n"
-                f"Unique Verbs: {num_verbs}\n"
-                f"Unique Objects: {num_objects}\n\n"
-                f"Time Analysis:\n"
-                f"  - First Event: {first_event}\n"
-                f"  - Last Event: {last_event}\n\n"
-                f"Events per Actor: Average {avg_events_per_actor:.2f}\n"
-                f"Events per Verb: Average {avg_events_per_verb:.2f}"
-            )
-            self.stats_label.setText(stats_text)
-        else:
-            self.stats_label.setText("Aucun fichier généré. Veuillez télécharger un fichier d'abord.")
+            # Graphiques en bas
+            actor_chart = self.create_histogram(avg_events_per_actor, min_events_per_actor, max_events_per_actor, "Events per Actor")
+            verb_chart = self.create_histogram(avg_events_per_verb, min_events_per_verb, max_events_per_verb, "Events per Verb")
+
+            # Ajouter le graphique principal
+            self.graph_layout.addWidget(overview_chart)
+
+            # Ajouter les graphiques en bas côte à côte
+            self.bottom_graph_layout.addWidget(actor_chart)
+            self.bottom_graph_layout.addWidget(verb_chart)
+
+    def clearStatistics(self):
+        """ Supprime les anciens graphiques pour éviter les doublons. """
+        for layout in [self.graph_layout, self.bottom_graph_layout]:
+            while layout.count():
+                widget = layout.takeAt(0).widget()
+                if widget:
+                    widget.setParent(None)
+
+    def create_bar_chart(self, data, title):
+        """ Crée un graphique en barres. """
+        labels = list(data.keys())
+        values = list(data.values())
+        colors = ['skyblue', 'orange', 'green', 'red']
+
+        fig, ax = plt.subplots(figsize=(6, 4))
+        bars = ax.bar(labels, values, color=colors)
+
+        ax.set_title(title, fontsize=12)
+        ax.set_ylabel("Count", fontsize=10)
+        ax.tick_params(axis='x', labelsize=9)
+
+        for bar in bars:
+            yval = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2, yval + 0.1, f'{int(yval)}', ha='center', va='bottom', fontsize=9)
+
+        plt.tight_layout()
+        canvas = FigureCanvas(fig)
+        canvas.setFixedSize(450, 300)  #taille de celui en haut
+        return canvas
+
+    def create_histogram(self, avg_value, min_value, max_value, title):
+        """ Crée un histogramme avec trois valeurs : moyenne, min, max. """
+        labels = ["Average", "Min", "Max"]
+        values = [avg_value, min_value, max_value]
+        colors = ['skyblue', 'orange', 'green']
+
+        fig, ax = plt.subplots(figsize=(5, 3))
+        bars = ax.bar(labels, values, color=colors)
+
+        ax.set_title(title, fontsize=10)
+        ax.set_ylabel("Number of Events", fontsize=9)
+        ax.tick_params(axis='x', labelsize=8)
+
+        for bar in bars:
+            yval = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2, yval + 0.1, f'{yval:.2f}', ha='center', va='bottom', fontsize=8)
+
+        plt.tight_layout()
+        canvas = FigureCanvas(fig)
+        canvas.setFixedSize(450, 300)  # taille des 2 en bas
+        return canvas
