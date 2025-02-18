@@ -1,32 +1,28 @@
 SIDEBAR_STYLE = """
-    QListWidget {
+QListWidget {
+    border-top-right-radius: 15px;
+    border-bottom-right-radius: 15px;
+    border: none;
     background: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1,
-                               stop:0 rgba(189,158,215,255), stop:1 rgba(64,89,168,255));
-    border-top-right-radius: 10px;
-    border-bottom-right-radius: 10px;
+                                stop:0 rgba(189,158,215,255), 
+                                stop:1 rgba(64,89,168,255));
     color: white;
     font-size: 16px;
-    padding-left: 15px;
-    padding-top: 0px;  /* Modifier ici */
-    padding-right: 0px; /* Modifier ici */
-    padding-bottom: 0px; /* Modifier ici */
-    outline: 0;
+    font-weight: bold;
+    padding-left: 10px;
 }
 
-    QListWidget::item {
-        margin-top: 10px;
-        margin-bottom: 10px;
-        padding-top: 7px;
-        padding-bottom: 7px;
-        outline: 0;
-    }
-    QListWidget::item:selected {
-        background: white;
-        color: black;
-        border-top-left-radius: 10px;
-        border-bottom-left-radius: 10px;
-    }
+QListWidget::item {
+    padding: 8px;
+    text-align: left;
+}
+
+QListWidget::item:selected {
+    background: rgba(255, 255, 255, 50);
+    border-radius: 5px;
+}
 """
+
 
 BUTTON_STYLE = """
     QPushButton {

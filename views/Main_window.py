@@ -1,13 +1,18 @@
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QStackedWidget, QApplication, QPushButton
+from PyQt6.QtWidgets import (
+    QWidget, QHBoxLayout, QStackedWidget, QApplication, QMessageBox
+)
 from PyQt6.QtGui import QIcon, QPixmap
-from PyQt6.QtCore import QRect, Qt, QSize
+from PyQt6.QtCore import Qt, QSize, QTimer
 from .Menu import Menu
-from views.pages.home import HomePage
-from views.pages.model_params import ModelParametersPage
-from views.pages.generate_data import GenerateDataPage
-from views.pages.analysis_params import AnalysisParametersPage
-from views.pages.analysis import AnalysisPage
-from views.pages.about import AboutPage
+from views.pages.Open import Open
+from views.pages.Display import Display
+from views.pages.Inspect import Inspect
+from views.pages.New import New
+from views.pages.Build import Build
+from views.pages.Tools import Tools
+from views.pages.Generate import Generate
+from views.pages.Save import Save
+from views.pages.Analysis import Analysis
 from views.Download_button import DownloadButton
 
 
@@ -26,61 +31,37 @@ class AnonymizationApp(QWidget):
         main_layout.setContentsMargins(0, 0, 10, 0)
         main_layout.setSpacing(40)
 
-
-        # Sidebar (Menu)
+        # Barre latérale (Menu)
         self.menu = Menu()
         main_layout.addWidget(self.menu)
 
-
         self.download_button = DownloadButton('Download File')
         self.download_button.file_loaded.connect(self.enableMenu)
-
-
-        # Passer la même instance du bouton à HomePage et GenerateDataPage
-        self.home_page = HomePage(self.download_button)
-        self.generate_data_page = GenerateDataPage(self.download_button)
-
-        # Bouton "prev" placé juste après le menu
-        self.prev_button = QPushButton()
-        self.prev_button.setIcon(QIcon("prev.png"))
-        self.prev_button.setIconSize(QSize(80, 80))
-        self.prev_button.setStyleSheet("border: none;")
-        self.prev_button.setFixedSize(QSize(70, 70))
-        self.prev_button.clicked.connect(self.prev_page)
-        main_layout.addWidget(self.prev_button, alignment=Qt.AlignmentFlag.AlignBottom)
 
         # QStackedWidget pour les pages
         self.stacked_widget = QStackedWidget()
         main_layout.addWidget(self.stacked_widget)
 
-        # Ajout des pages
+        # Ajout des pages dans le QStackedWidget
         self.pages = [
-            self.home_page,
-            ModelParametersPage(),
-            self.generate_data_page,
-            AnalysisParametersPage(),
-            AnalysisPage(),
-            AboutPage()
+            Open(self.download_button),           # Index 0 – Page d'accueil (Open)
+            Display(self.download_button),        # Index 1 – Display
+            Inspect(self.download_button),        # Index 2 – Inspect
+            New(),                                # Index 3 – New
+            Build(),                              # Index 4 – Build
+            Tools(),                              # Index 5 – Tools
+            Generate(),                           # Index 6 – Generate
+            Analysis(),                           # Index 7 – Analysis
+            Save()                                # Index 8 – Save
         ]
         for page in self.pages:
             self.stacked_widget.addWidget(page)
 
-        # Connexion des signaux pour synchroniser menu et stacked widget
-        self.menu.page_changed.connect(self.stacked_widget.setCurrentIndex)
-        self.stacked_widget.currentChanged.connect(self.menu.setCurrentRow)
+        # Connexion du signal du menu à la méthode de changement de page
+        self.menu.page_changed.connect(self.changePage)
 
-        # Ajouter un stretch pour pousser le prochain bouton à droite
-        main_layout.addStretch()
-
-        # Bouton "next" en extrémité droite
-        self.next_button = QPushButton()
-        self.next_button.setIcon(QIcon("next.png"))
-        self.next_button.setIconSize(QSize(80, 80))
-        self.next_button.setStyleSheet("border: none;")
-        self.next_button.setFixedSize(QSize(70, 70))
-        self.next_button.clicked.connect(self.next_page)
-        main_layout.addWidget(self.next_button, alignment=Qt.AlignmentFlag.AlignBottom)
-
+        # Affichage de la page d'accueil par défaut
+        self.stacked_widget.setCurrentIndex(0)
         self.setLayout(main_layout)
 
     def centerWindow(self):
@@ -91,15 +72,26 @@ class AnonymizationApp(QWidget):
         y = (screen_geometry.height() - window_height) // 2
         self.setGeometry(x, y, window_width, window_height)
 
-    def next_page(self):
-        current_index = self.stacked_widget.currentIndex()
-        next_index = (current_index + 1) % len(self.pages)
-        self.stacked_widget.setCurrentIndex(next_index)
-
-    def prev_page(self):
-        current_index = self.stacked_widget.currentIndex()
-        prev_index = (current_index - 1) % len(self.pages)
-        self.stacked_widget.setCurrentIndex(prev_index)
-
     def enableMenu(self):
         self.menu.setEnabled(True)
+
+    def changePage(self, index):
+        currentIndex = self.stacked_widget.currentIndex()
+        # Bloquer l'accès aux pages Display (index 1) et Inspect (index 2) si aucun fichier n'est téléchargé
+        if index in [1, 2]:
+            if not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None:
+                QMessageBox.warning(
+                    self,
+                    "Fichier non téléchargé",
+                    "Veuillez télécharger un fichier avant d'accéder à cette page."
+                )
+                # Utiliser un QTimer pour retarder la réinitialisation de la sélection
+                QTimer.singleShot(0, lambda: self.resetMenuSelection(currentIndex))
+                return
+        self.stacked_widget.setCurrentIndex(index)
+
+    def resetMenuSelection(self, index):
+        self.menu.blockSignals(True)
+        self.menu.setCurrentRow(index)
+        self.menu.blockSignals(False)
+        self.stacked_widget.setCurrentIndex(index)
