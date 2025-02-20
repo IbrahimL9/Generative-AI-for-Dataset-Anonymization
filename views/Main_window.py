@@ -73,19 +73,20 @@ class AnonymizationApp(QWidget):
         self.setGeometry(x, y, window_width, window_height)
 
     def enableMenu(self):
+        print("Menu enabled")
         self.menu.setEnabled(True)
 
     def changePage(self, index):
+        print(f"Changing page to index: {index}")
         currentIndex = self.stacked_widget.currentIndex()
-        # Bloquer l'accès aux pages Display (index 1) et Inspect (index 2) si aucun fichier n'est téléchargé
         if index in [1, 2]:
             if not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None:
+                print("File not loaded, showing warning.")
                 QMessageBox.warning(
                     self,
                     "Fichier non téléchargé",
                     "Veuillez télécharger un fichier avant d'accéder à cette page."
                 )
-                # Utiliser un QTimer pour retarder la réinitialisation de la sélection
                 QTimer.singleShot(0, lambda: self.resetMenuSelection(currentIndex))
                 return
         self.stacked_widget.setCurrentIndex(index)

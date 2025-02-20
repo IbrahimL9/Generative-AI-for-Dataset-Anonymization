@@ -63,7 +63,6 @@ class DownloadButton(QWidget):
             file_path = url.toLocalFile()
             if file_path.lower().endswith('.json'):
                 self.button.setText("Drop the File")
-                # Agrandir le bouton de 50 %
                 if self.default_size:
                     new_width = int(self.default_size.width() * 1.5)
                     new_height = int(self.default_size.height() * 1.5)
