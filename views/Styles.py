@@ -24,21 +24,23 @@ QListWidget::item:selected {
 """
 
 
+
 BUTTON_STYLE = """
     QPushButton {
-        background-color: #677DB7;
+        background-color: #4CAF50;
         color: white;
+        border: none;
         border-radius: 10px;
         padding: 10px 20px;
         font-size: 20px;
         border: none;
     }
     QPushButton:hover {
-        background-color: #5A6FA5;
+        background-color: #45a049;
     }
-    QPushButton:focus {
-        outline: none;
-        border: none;
+    QPushButton:pressed {
+        background-color: #388E3C;
     }
 """
+
 
