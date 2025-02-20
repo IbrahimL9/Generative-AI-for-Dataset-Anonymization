@@ -15,7 +15,6 @@ from views.pages.Save import Save
 from views.pages.Analysis import Analysis
 from views.Download_button import DownloadButton
 
-
 class AnonymizationApp(QWidget):
     def __init__(self):
         super().__init__()
@@ -57,6 +56,21 @@ class AnonymizationApp(QWidget):
         for page in self.pages:
             self.stacked_widget.addWidget(page)
 
+        # Récupérer les pages New, Build, Generate, et Save
+        self.new_page = self.pages[3]  # Index 3 correspond à New
+        self.build_page = self.pages[4]  # Index 4 correspond à Build
+        self.generate_page = self.pages[6]  # Index 6 correspond à Generate
+        self.save_page = self.pages[8]  # Index 8 correspond à Save
+
+        # Connecter le signal du modèle chargé dans New aux fonctions de Build, Generate, et Save
+        self.new_page.model_loaded.connect(self.build_page.on_model_loaded)
+        self.new_page.model_loaded.connect(self.generate_page.on_model_loaded)
+        self.new_page.model_loaded.connect(self.save_page.on_model_loaded)
+
+        # Connecter le signal du fichier chargé dans Open aux fonctions de Generate et Save
+        self.pages[0].fileLoaded.connect(self.generate_page.on_file_loaded)
+        self.pages[0].fileLoaded.connect(self.save_page.on_file_loaded)
+
         # Connexion du signal du menu à la méthode de changement de page
         self.menu.page_changed.connect(self.changePage)
 
@@ -95,3 +109,6 @@ class AnonymizationApp(QWidget):
         self.menu.setCurrentRow(index)
         self.menu.blockSignals(False)
         self.stacked_widget.setCurrentIndex(index)
+
+    def get_open_page(self):
+        return self.pages[0]  # Retourne l'instance de la page Open
