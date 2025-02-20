@@ -7,6 +7,7 @@ from PyQt6.QtCore import Qt, QSize, QTimer, pyqtSignal
 
 class Open(QWidget):
     fileDownloaded = pyqtSignal()
+    fileLoaded = pyqtSignal()
 
     def __init__(self, download_button):
         super().__init__()
@@ -49,6 +50,9 @@ class Open(QWidget):
     def updateViewButtonState(self):
         if hasattr(self.download_button, 'json_data') and self.download_button.json_data is not None:
             # Une fois le fichier téléchargé, on arrête le timer et on signale l'événement
+            self.json_data = self.download_button.json_data  # Assurez-vous que json_data est défini
+            self.checkTimer.stop()
             self.checkTimer.stop()
             self.fileDownloaded.emit()  # Signaler que le fichier est téléchargé
         # Sinon, rien n'est fait
+

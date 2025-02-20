@@ -64,6 +64,20 @@ class AnonymizationApp(QWidget):
         self.stacked_widget.setCurrentIndex(0)
         self.setLayout(main_layout)
 
+        # Récupérer les pages New, Build, Generate, et Save
+        self.new_page = self.pages[3]  # Index 3 correspond à New
+        self.build_page = self.pages[4]  # Index 4 correspond à Build
+        self.generate_page = self.pages[6]  # Index 6 correspond à Generate
+        self.save_page = self.pages[8]  # Index 8 correspond à Save
+
+        # Connecter le signal du modèle chargé dans New aux fonctions de Build, Generate, et Save
+        self.new_page.model_loaded.connect(self.build_page.on_model_loaded)
+        self.new_page.model_loaded.connect(self.generate_page.on_model_loaded)
+        self.new_page.model_loaded.connect(self.save_page.on_model_loaded)
+
+        # Connecter le signal du fichier chargé dans Open aux fonctions de Generate et Save
+        self.pages[0].fileLoaded.connect(self.generate_page.on_file_loaded)
+        self.pages[0].fileLoaded.connect(self.save_page.on_file_loaded)
     def centerWindow(self):
         screen_geometry = QApplication.primaryScreen().availableGeometry()
         window_width = 1000
@@ -96,3 +110,6 @@ class AnonymizationApp(QWidget):
         self.menu.setCurrentRow(index)
         self.menu.blockSignals(False)
         self.stacked_widget.setCurrentIndex(index)
+
+    def get_open_page(self):
+        return self.pages[0]  # Retourne l'instance de la page Open
