@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (
-    QWidget, QLabel, QVBoxLayout, QFormLayout, QLineEdit, QComboBox,
-    QPushButton, QHBoxLayout
+    QWidget, QLabel, QVBoxLayout, QGridLayout, QLineEdit, QComboBox,
+    QPushButton, QHBoxLayout, QSpacerItem, QSizePolicy
 )
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
@@ -18,59 +18,71 @@ class Tools(QWidget):
         main_layout = QVBoxLayout()
 
         # Titre de la page
-        title_label = QLabel("Tools")
-        title_label.setFont(QFont("Montserrat", 14, QFont.Weight.Bold))
+        title_label = QLabel("Model Parameters")
+        title_label.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(title_label)
 
+        # Spacer après le titre
+        main_layout.addItem(QSpacerItem(20, 30, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+
         # Titre pour la section des paramètres
-        param_title = QLabel("Model Parameters :")
-        param_title.setFont(QFont("Montserrat", 12, QFont.Weight.Bold))
+        param_title = QLabel("CTGAN MODEL :")
+        param_title.setFont(QFont("Montserrat", 14, QFont.Weight.Bold))
         main_layout.addWidget(param_title)
 
-        # Layout en formulaire pour les champs de saisie
-        form_layout = QFormLayout()
+        main_layout.addItem(QSpacerItem(10, 5, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
 
-        # Champ : Number of Epochs (valeur par défaut : 200)
+        # Layout pour les paramètres (Grille)
+        param_layout = QGridLayout()
+        param_layout.setHorizontalSpacing(40)
+        param_layout.setVerticalSpacing(20)
+
+        # Fonction générique pour créer un label et un champ de saisie
+        def create_label_input_field(label_text, input_widget):
+            layout = QVBoxLayout()
+            label = QLabel(label_text)
+            label.setFont(QFont("Montserrat", 10, QFont.Weight.DemiBold))
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            layout.addWidget(label)
+            layout.addWidget(input_widget)
+            return layout
+
+        # Champs avec valeurs par défaut
         self.epochs_edit = QLineEdit("200")
-        form_layout.addRow(QLabel("Number of Epochs"), self.epochs_edit)
-
-        # Champ : Generator Learning Rate (valeur par défaut : 0.002)
         self.gen_lr_edit = QLineEdit("0.002")
-        form_layout.addRow(QLabel("Generator Learning Rate"), self.gen_lr_edit)
-
-        # Champ : Batch size (valeur par défaut : 500)
         self.batch_size_edit = QLineEdit("500")
-        form_layout.addRow(QLabel("Batch size"), self.batch_size_edit)
-
-        # Champ : Discriminator Learning Rate (valeur par défaut : 0.002)
         self.disc_lr_edit = QLineEdit("0.002")
-        form_layout.addRow(QLabel("Discriminator Learning Rate"), self.disc_lr_edit)
-
-        # Champ : Number of data to generate (valeur par défaut : 2000)
         self.data_to_generate_edit = QLineEdit("2000")
-        form_layout.addRow(QLabel("Number of data to generate"), self.data_to_generate_edit)
-
-        # Champ : Enforce Min/Max Constraints (valeur par défaut : True)
         self.minmax_combo = QComboBox()
         self.minmax_combo.addItems(["True", "False"])
-        # Sélectionne "True" par défaut
-        self.minmax_combo.setCurrentIndex(0)
-        form_layout.addRow(QLabel("Enforce Min/Max Constraints"), self.minmax_combo)
+        self.minmax_combo.setCurrentIndex(0)  # "True" par défaut
 
-        # Ajouter le formulaire au layout principal
-        main_layout.addLayout(form_layout)
+        # Ajout des paramètres à la grille (2 par ligne)
+        param_layout.addLayout(create_label_input_field("Number of Epochs", self.epochs_edit), 0, 0)
+        param_layout.addLayout(create_label_input_field("Generator Learning Rate", self.gen_lr_edit), 0, 1)
+        param_layout.addLayout(create_label_input_field("Batch size", self.batch_size_edit), 1, 0)
+        param_layout.addLayout(create_label_input_field("Discriminator Learning Rate", self.disc_lr_edit), 1, 1)
+        param_layout.addLayout(create_label_input_field("Number of Data to Generate", self.data_to_generate_edit), 2, 0)
+        param_layout.addLayout(create_label_input_field("Enforce Min/Max Constraints", self.minmax_combo), 2, 1)
 
-        # Bouton SAVE, centré horizontalement
+        main_layout.addLayout(param_layout)
+
+        # Spacer pour ne pas coller le bouton
+        main_layout.addItem(QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+
+        # Bouton SAVE
         save_button_layout = QHBoxLayout()
         self.save_button = QPushButton("SAVE")
         self.save_button.setStyleSheet(BUTTON_STYLE)
-        # Ajuster la taille du bouton si nécessaire
         self.save_button.setFixedSize(140, 50)
         save_button_layout.addStretch()
         save_button_layout.addWidget(self.save_button)
         save_button_layout.addStretch()
         main_layout.addLayout(save_button_layout)
+
+        # Spacer en bas pour équilibrer
+        main_layout.addItem(QSpacerItem(20, 60, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
 
         # Appliquer le layout principal
         self.setLayout(main_layout)
