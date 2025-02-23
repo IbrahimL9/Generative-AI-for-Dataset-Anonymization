@@ -219,7 +219,7 @@ class Inspect(QWidget):
         labels = list(object_counts.keys())
         sizes = list(object_counts.values())
 
-        fig, ax = plt.subplots(figsize=(4, 3)) 
+        fig, ax = plt.subplots(figsize=(4, 3))
         ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=plt.cm.Paired.colors)
         ax.axis('equal')
         ax.set_title("Distribution of the Top 6 Objects")
