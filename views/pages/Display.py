@@ -21,7 +21,7 @@ class Display(QWidget):
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.layout.addWidget(title)
 
-        # Section des filtres (sans background)
+        # Section des filtres
         self.filter_group = QGroupBox("🔍 Filters")
         self.filter_group.setStyleSheet("""
             QGroupBox {
@@ -141,26 +141,29 @@ class Display(QWidget):
         self.updateTable()
         super().showEvent(event)
 
+    def extract_name(self, value):
+        """ Extrait uniquement le nom utile d'un lien ou d'une adresse email """
+        if "mailto:" in value:
+            return value.replace("mailto:", "")
+        elif value.startswith("http"):
+            return value.split("/")[-1]
+        return value
+
     def updateTable(self):
+        """ Met à jour le tableau avec les données JSON fusionnées """
         if hasattr(self.download_button, 'json_data') and self.download_button.json_data is not None:
-            events = self.download_button.json_data.get("events", [])
-            self.table.setRowCount(len(events))
+            all_events = []
+            for batch in self.download_button.json_data:
+                all_events.extend(batch)
 
-            for row, event in enumerate(events):
-                self.table.setItem(row, 0, QTableWidgetItem(event.get("timestamp", "")))
-                self.table.setItem(row, 1, QTableWidgetItem(event.get("actor", "")))
-                self.table.setItem(row, 2, QTableWidgetItem(event.get("verb", "")))
-                self.table.setItem(row, 3, QTableWidgetItem(event.get("object", "")))
+            self.afficher_tableau(all_events)
 
-                if row % 2 == 0:
-                    for col in range(4):
-                        self.table.item(row, col).setBackground(QColor("#E5E9F2"))
-
-            verbs = list(set(event.get("verb") for event in events if event.get("verb")))
+            # Mise à jour des filtres
+            verbs = list(set(self.extract_name(event["verb"]["id"]) for event in all_events if "verb" in event))
             self.verb_combobox.clear()
             self.verb_combobox.addItems(verbs)
 
-            actors = list(set(event.get("actor") for event in events if event.get("actor")))
+            actors = list(set(self.extract_name(event["actor"]["mbox"]) for event in all_events if "actor" in event))
             self.actor_combobox.clear()
             self.actor_combobox.addItems(actors)
         else:
@@ -173,17 +176,21 @@ class Display(QWidget):
         self.actor_combobox.setVisible(checked)
 
     def appliquer_filtre(self):
+        """ Applique les filtres sélectionnés """
         if hasattr(self.download_button, 'json_data') and self.download_button.json_data is not None:
-            events = self.download_button.json_data.get("events", [])
-            filtered_events = events
+            all_events = []
+            for batch in self.download_button.json_data:
+                all_events.extend(batch)
+
+            filtered_events = all_events
 
             if self.verb_checkbox.isChecked():
                 selected_verb = self.verb_combobox.currentText()
-                filtered_events = [event for event in filtered_events if event.get("verb") == selected_verb]
+                filtered_events = [event for event in filtered_events if self.extract_name(event.get("verb", {}).get("id", "")) == selected_verb]
 
             if self.actor_checkbox.isChecked():
                 selected_actor = self.actor_combobox.currentText()
-                filtered_events = [event for event in filtered_events if event.get("actor") == selected_actor]
+                filtered_events = [event for event in filtered_events if self.extract_name(event.get("actor", {}).get("mbox", "")) == selected_actor]
 
             max_events = self.number_input.value()
             if max_events != 0:
@@ -192,12 +199,13 @@ class Display(QWidget):
             self.afficher_tableau(filtered_events)
 
     def afficher_tableau(self, events):
+        """ Affiche les données dans le tableau """
         self.table.setRowCount(len(events))
         for row, event in enumerate(events):
             self.table.setItem(row, 0, QTableWidgetItem(event.get("timestamp", "")))
-            self.table.setItem(row, 1, QTableWidgetItem(event.get("actor", "")))
-            self.table.setItem(row, 2, QTableWidgetItem(event.get("verb", "")))
-            self.table.setItem(row, 3, QTableWidgetItem(event.get("object", "")))
+            self.table.setItem(row, 1, QTableWidgetItem(self.extract_name(event.get("actor", {}).get("mbox", ""))))
+            self.table.setItem(row, 2, QTableWidgetItem(self.extract_name(event.get("verb", {}).get("id", ""))))
+            self.table.setItem(row, 3, QTableWidgetItem(self.extract_name(event.get("object", {}).get("id", ""))))
 
             if row % 2 == 0:
                 for col in range(4):
