@@ -152,9 +152,15 @@ class Display(QWidget):
     def updateTable(self):
         """ Met à jour le tableau avec les données JSON fusionnées """
         if hasattr(self.download_button, 'json_data') and self.download_button.json_data is not None:
-            all_events = []
-            for batch in self.download_button.json_data:
-                all_events.extend(batch)
+            # Si le premier élément est lui-même une liste, on itère sur des batches
+            if isinstance(self.download_button.json_data, list) and len(
+                    self.download_button.json_data) > 0 and isinstance(self.download_button.json_data[0], list):
+                all_events = []
+                for batch in self.download_button.json_data:
+                    all_events.extend(batch)
+            else:
+                # Sinon, c'est déjà une liste d'événements
+                all_events = self.download_button.json_data
 
             self.afficher_tableau(all_events)
 

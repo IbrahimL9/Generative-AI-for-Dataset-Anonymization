@@ -60,12 +60,14 @@ class Inspect(QWidget):
             print("Aucune donnée JSON chargée.")
             return
 
-        # Fusionner toutes les listes imbriquées
+        # Fusionner toutes les listes imbriquées ou utiliser directement la liste d'événements
         data = self.download_button.json_data
-        events = []
-        for batch in data:
-            if isinstance(batch, list):
+        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
+            events = []
+            for batch in data:
                 events.extend(batch)
+        else:
+            events = data
 
         print(f"Nombre total d'événements : {len(events)}")
 
