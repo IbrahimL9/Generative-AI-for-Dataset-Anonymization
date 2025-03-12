@@ -1,4 +1,5 @@
-from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QDialog
+from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QDialog, QComboBox, \
+    QSpacerItem, QSizePolicy
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, pyqtSignal
 import pickle
@@ -7,38 +8,60 @@ from views.Styles import BUTTON_STYLE
 
 
 class New(QWidget):
-    model_loaded = pyqtSignal(object)  # Signal pour notifier que le modèle est chargé
+    model_loaded = pyqtSignal(object)
 
     def __init__(self):
         super().__init__()
-        self.model = None  # Pour stocker le modèle entraîné
+        self.model = None
         self.initUI()
 
     def initUI(self):
-        layout = QVBoxLayout()
+        main_layout = QVBoxLayout()
 
-        # Ajouter un espace en haut
-        layout.addStretch(1)
-
-        label = QLabel("New")
-        label.setFont(QFont("Montserrat", 14, QFont.Weight.Bold))
+        # Titre de la page
+        label = QLabel("New Model")
+        label.setFont(QFont("Montserrat", 16, QFont.Weight.Bold))
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(label)
+        main_layout.addItem(QSpacerItem(20, 30, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        main_layout.addWidget(label)
+        main_layout.addItem(QSpacerItem(20, 200, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
 
-        # Bouton pour charger un modèle entraîné
+
+        row_layout = QHBoxLayout()
+        row_layout.setSpacing(10)
+        row_layout.setContentsMargins(0, 20, 0, 0)
+
+        self.new_model_button = QPushButton("New")
+        self.new_model_button.setStyleSheet(BUTTON_STYLE)
+        self.new_model_button.setFixedWidth(200)
+        self.new_model_button.clicked.connect(self.new_model)
+        row_layout.addWidget(self.new_model_button)
+
+        self.model_combo = QComboBox()
+        self.model_combo.addItems(["CTGAN", "OTHER"])
+        self.model_combo.setCurrentIndex(0)  # CTGAN par défaut
+        self.model_combo.setFixedWidth(150)
+        row_layout.addWidget(self.model_combo)
+
+        # Bouton "Load Model"
         self.load_model_button = QPushButton("Load Model")
+        self.load_model_button.setStyleSheet(BUTTON_STYLE)
+        self.load_model_button.setFixedWidth(200)
         self.load_model_button.clicked.connect(self.load_model)
-        self.load_model_button.setStyleSheet(BUTTON_STYLE)  # Appliquer le style
-        self.load_model_button.setFixedWidth(200)  # Définir une largeur fixe
-        layout.addWidget(self.load_model_button, alignment=Qt.AlignmentFlag.AlignCenter)
+        row_layout.addWidget(self.load_model_button)
 
-        # Ajouter un espace en bas
-        layout.addStretch(2)
+        main_layout.addLayout(row_layout)
 
-        self.setLayout(layout)
+        main_layout.addStretch(1)
+
+        self.setLayout(main_layout)
+
+    def new_model(self):
+        selected_model = self.model_combo.currentText()
+        print("Nouveau modèle sélectionné :", selected_model)
+        self.show_message(f"Nouveau modèle '{selected_model}' créé.")
 
     def load_model(self):
-        """Charge un modèle entraîné à partir d'un fichier."""
         anonymization_app = self.parent().parent()
         open_page = anonymization_app.get_open_page()
 
@@ -50,14 +73,13 @@ class New(QWidget):
         if file_path:
             with open(file_path, 'rb') as f:
                 self.model = pickle.load(f)
-            print("Modèle chargé depuis le fichier :", file_path)  # Impression de débogage
+            print("Modèle chargé depuis le fichier :", file_path)
             self.show_message(f"Modèle chargé avec succès depuis {file_path}")
-            # Émettre un signal pour informer que le modèle est chargé
+
             self.model_loaded.emit(self.model)
-            print("Signal de modèle chargé émis.")  # Impression de débogage
+            print("Signal de modèle chargé émis.")
 
     def show_message(self, message):
-        """Affiche un message dans une boîte de dialogue."""
         dialog = QDialog(self)
         dialog.setWindowTitle("Information")
         dialog_layout = QVBoxLayout(dialog)

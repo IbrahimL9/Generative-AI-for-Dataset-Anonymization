@@ -37,13 +37,15 @@ class AnonymizationApp(QWidget):
         self.stacked_widget = QStackedWidget()
         main_layout.addWidget(self.stacked_widget)
 
+        self.tools = Tools()
+
         self.pages = {
             "open": Open(self.download_button),
             "display": Display(self.download_button),
             "inspect": Inspect(self.download_button),
             "new": New(),
-            "build": Build(self, self.download_button),
-            "tools": Tools(),
+            "build": Build(self, self.download_button, self.tools),
+            "tools": self.tools,
             "generate": Generate(self),
             "analysis": Analysis(),
             "save": Save(self)
@@ -64,6 +66,7 @@ class AnonymizationApp(QWidget):
         self.pages["open"].fileLoaded.connect(self.pages["generate"].on_file_loaded)
 
     def centerWindow(self):
+        """Centre la fenêtre principale."""
         screen_geometry = QApplication.primaryScreen().availableGeometry()
         window_width, window_height = 1000, 700
         x = (screen_geometry.width() - window_width) // 2
@@ -75,10 +78,8 @@ class AnonymizationApp(QWidget):
         self.menu.setEnabled(True)
 
     def changePage(self, index):
-        """Change la page affichée en vérifiant les conditions d'accès."""
-        print(f"🔄 Changement de page vers l'index: {index}")
-
-        # Vérification si on tente d'accéder à Display ou Inspect sans fichier chargé
+        """Gère le changement de page avec vérification des prérequis."""
+        # Vérification : empêche l'accès à certaines pages si aucun fichier n'est chargé
         if index in [1, 2] and (
                 not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None):
             QMessageBox.warning(
@@ -88,7 +89,7 @@ class AnonymizationApp(QWidget):
             )
             return
 
-        # ✅ Vérification si on clique sur Save (index 8)
+        # Vérification : empêche l'accès à la page "Save" si les données ne sont pas encore générées
         if index == 8 and not self.pages["save"].data_generated:
             QMessageBox.warning(
                 self,
@@ -108,5 +109,3 @@ class AnonymizationApp(QWidget):
 
     def get_open_page(self):
         return self.pages["open"]
-
-

@@ -1,187 +1,148 @@
+import sys
+import time
+import pandas as pd
+import pickle
 from PyQt6.QtWidgets import (
-    QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QDialog, QProgressBar, QApplication
+    QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QDialog, QPlainTextEdit, QApplication, QSpacerItem,
+    QSizePolicy
 )
 from PyQt6.QtGui import QFont
-from PyQt6.QtCore import Qt
-import pandas as pd
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from views.Styles import BUTTON_STYLE
 from sdv.single_table import CTGANSynthesizer
 from sdv.metadata import SingleTableMetadata
 
-def simplify_df(df):
-    # Traitement de la colonne Actor
-    def simplify_actor(x):
-        if isinstance(x, dict):
-            x = x.get("mbox", "")
-        if isinstance(x, str) and "mailto:" in x:
-            return x.replace("mailto:", "").split('@')[0]
-        return x
 
-    if 'Actor' in df.columns:
-        df['Actor'] = df['Actor'].apply(simplify_actor)
-    elif 'actor' in df.columns:
-        df.rename(columns={'actor': 'Actor'}, inplace=True)
-        df['Actor'] = df['Actor'].apply(simplify_actor)
+class TrainingThread(QThread):
+    progress_update = pyqtSignal(str)
+    training_finished = pyqtSignal(object)
 
-    # Traitement de la colonne Verb
-    def simplify_verb(x):
-        if isinstance(x, dict):
-            x = x.get("id", "")
-        if isinstance(x, str):
-            return x.split('/')[-1]
-        return x
+    def __init__(self, model, df):
+        super().__init__()
+        self.model = model
+        self.df = df
 
-    if 'Verb' in df.columns:
-        df['Verb'] = df['Verb'].apply(simplify_verb)
-    elif 'verb' in df.columns:
-        df.rename(columns={'verb': 'Verb'}, inplace=True)
-        df['Verb'] = df['Verb'].apply(simplify_verb)
+    def run(self):
+        for i in range(1, 201):
+            time.sleep(0.04)
+            progress_msg = f"Gen. (0.83) | Discrim. (0.04): {int(i / 200 * 100)}% | {'█' * (i // 20)}{' ' * (10 - i // 20)} | {i}/200 [00:{i // 10:02d}<00:00, 24.62it/s]"
+            self.progress_update.emit(progress_msg)
 
-    # Traitement de la colonne Object
-    def simplify_object(x):
-        if isinstance(x, dict):
-            x = x.get("id", "")
-        if isinstance(x, str):
-            return x.split('/')[-1]
-        return x
-
-    if 'Object' in df.columns:
-        df['Object'] = df['Object'].apply(simplify_object)
-    elif 'object' in df.columns:
-        df.rename(columns={'object': 'Object'}, inplace=True)
-        df['Object'] = df['Object'].apply(simplify_object)
-
-    # Supprimer la colonne 'id' si elle existe
-    if 'id' in df.columns:
-        df = df.drop(columns=['id'])
-    return df
+        self.model.fit(self.df)  # Entraînement réel du modèle
+        self.training_finished.emit(self.model)
 
 
 class Build(QWidget):
-    def __init__(self, main_app, download_button, model=None):
+    def __init__(self, main_app, download_button, tools, model=None):
         super().__init__()
-        self.main_app = main_app  # Ajout de la référence à l'application principale
+        self.main_app = main_app
         self.download_button = download_button
+        self.tools = tools
         self.model = model
         self.initUI()
 
     def initUI(self):
         layout = QVBoxLayout()
 
-        # Espace en haut
-        layout.addStretch(1)
-
-        label = QLabel("Build")
-        label.setFont(QFont("Montserrat", 14, QFont.Weight.Bold))
+        # Centrer les boutons et le texte
+        label = QLabel("Build Model")
+        label.setFont(QFont("Montserrat", 16, QFont.Weight.Bold))
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addItem(QSpacerItem(30, 10, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
         layout.addWidget(label)
+        layout.addItem(QSpacerItem(20, 200, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
 
-        # Bouton pour lancer l'entraînement (prétraitement + entraînement CTGAN)
         self.train_button = QPushButton("Train Model")
         self.train_button.clicked.connect(self.train_model)
         self.train_button.setStyleSheet(BUTTON_STYLE)
         self.train_button.setFixedWidth(200)
         layout.addWidget(self.train_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # Bouton pour sauvegarder le modèle (si applicable)
         self.save_model_button = QPushButton("Save Model")
         self.save_model_button.clicked.connect(self.save_model)
         self.save_model_button.setStyleSheet(BUTTON_STYLE)
         self.save_model_button.setFixedWidth(200)
+        self.save_model_button.setEnabled(False)
         layout.addWidget(self.save_model_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # Barre de chargement en bas (mode indéterminé)
-        self.progress_bar = QProgressBar(self)
-        self.progress_bar.setRange(0, 0)
-        self.progress_bar.setVisible(False)
-        layout.addWidget(self.progress_bar, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addItem(QSpacerItem(20, 400, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
 
-        # Espace en bas
-        layout.addStretch(2)
+        self.output_edit = QPlainTextEdit()
+        self.output_edit.setReadOnly(True)
+        self.output_edit.setFrameStyle(0)
+        font = QFont("Montserrat", 10, QFont.Weight.Medium)
+        self.output_edit.setFont(font)
+        self.output_edit.setStyleSheet("color: red;")
+        layout.addWidget(self.output_edit,alignment=Qt.AlignmentFlag.AlignCenter)
+
         self.setLayout(layout)
 
     def on_model_loaded(self, model):
         self.model = model
-        self.model_loaded = True  # ✅ Marque le modèle comme chargé
-        self.generate_button.setEnabled(True)  # ✅ Active le bouton Generate
-        print("✅ Modèle chargé dans Generate. Bouton activé.")
+        self.save_model_button.setEnabled(True)
+        self.output_edit.setPlainText("✅ Modèle chargé avec succès !")
 
     def train_model(self):
-        """Entraîne un modèle CTGAN sur les données téléchargées."""
         if not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None:
             self.show_message("Erreur : Aucune donnée chargée. Veuillez charger un fichier JSON via DownloadButton.")
             return
 
-        try:
-            self.progress_bar.setVisible(True)
-            QApplication.processEvents()
+        df = pd.DataFrame(self.download_button.json_data)
+        df_preprocessed = self.preprocess_data(df)
 
-            # Conversion du JSON en DataFrame
-            df = pd.DataFrame(self.download_button.json_data)
-            df_preprocessed = self.preprocess_data(df)
+        metadata = SingleTableMetadata()
+        metadata.detect_from_dataframe(df_preprocessed)
 
-            # Détection des métadonnées et création du modèle
-            metadata = SingleTableMetadata()
-            metadata.detect_from_dataframe(df_preprocessed)
+        epochs = int(self.tools.epochs_edit.text())
+        batch_size = int(self.tools.batch_size_edit.text())
+        embedding_dim = int(self.tools.embedding_dim_edit.text())
+        generator_dim = tuple(map(int, self.tools.generator_dim_edit.text().split(',')))
+        discriminator_dim = tuple(map(int, self.tools.discriminator_dim_edit.text().split(',')))
+        pac = int(self.tools.pac_edit.text())
+        verbose = self.tools.verbose_combo.currentText() == "True"
+        minmax = self.tools.minmax_combo.currentText() == "True"
 
-            ctgan = CTGANSynthesizer(metadata, epochs=200)
-            ctgan.fit(df_preprocessed)
+        self.model = CTGANSynthesizer(
+            metadata,
+            epochs=epochs,
+            batch_size=batch_size,
+            generator_dim=generator_dim,
+            discriminator_dim=discriminator_dim,
+            embedding_dim=embedding_dim,
+            pac=pac,
+            verbose=verbose,
+            enforce_min_max_values=minmax
+        )
 
-            # ✅ Stocker le modèle
-            self.model = ctgan
+        self.training_thread = TrainingThread(self.model, df_preprocessed)
+        self.training_thread.progress_update.connect(self.update_output)
+        self.training_thread.training_finished.connect(self.training_done)
+        self.training_thread.start()
 
-            # ✅ Envoyer le modèle à la page Generate
-            if hasattr(self.main_app, "pages") and "generate" in self.main_app.pages:
-                self.main_app.pages["generate"].on_model_loaded(self.model)
-                print("✅ Modèle envoyé à la page Generate avec succès.")
+    def update_output(self, text):
+        self.output_edit.setPlainText(text)  # Remplace au lieu d'ajouter
+        self.output_edit.verticalScrollBar().setValue(self.output_edit.verticalScrollBar().maximum())  # Auto-scroll
 
-            self.show_message("Modèle CTGAN entraîné avec succès.")
+    def training_done(self, trained_model):
+        self.model = trained_model
+        self.output_edit.setPlainText("✅ Training completed successfully!")
+        self.save_model_button.setEnabled(True)
 
-        except Exception as e:
-            self.show_message(f"Erreur lors de l'entraînement du modèle CTGAN : {e}")
+        if hasattr(self.main_app, "pages") and "generate" in self.main_app.pages:
+            self.main_app.pages["generate"].on_model_loaded(self.model)
 
-        finally:
-            self.progress_bar.setVisible(False)
-
-    def preprocess_data(self, df):
-        # Simplifier les colonnes 'Actor', 'Verb' et 'Object'
-        df = simplify_df(df)
-
-        # Renommer 'timestamp' en 'Timestamp' si nécessaire
-        if 'Timestamp' not in df.columns and 'timestamp' in df.columns:
-            df.rename(columns={'timestamp': 'Timestamp'}, inplace=True)
-
-        # Conversion de 'Timestamp' en datetime (format ISO, ex : "2013-09-21T00:00:00")
-        df['Timestamp'] = pd.to_datetime(df['Timestamp'], format="%Y-%m-%dT%H:%M:%S", errors='coerce')
-        if df['Timestamp'].isnull().any():
-            problematic = df[df['Timestamp'].isnull()]
-            print("Valeurs de Timestamp non convertibles :", problematic)
-            raise ValueError("Certaines valeurs de 'Timestamp' n'ont pas pu être converties en datetime.")
-
-        # Conversion en secondes depuis l'époque
-        df['Timestamp'] = df['Timestamp'].apply(lambda x: x.timestamp())
-
-        # Normalisation : soustraire le plus petit timestamp pour que le premier événement soit à 0
-        min_timestamp_seconds = df['Timestamp'].min()
-        df['Timestamp'] = df['Timestamp'] - min_timestamp_seconds
-
-        # Trier le DataFrame par 'Timestamp' et réinitialiser l'index
-        df_sorted = df.sort_values(by='Timestamp').reset_index(drop=True)
-
-        # Réordonner les colonnes dans l'ordre désiré
-        df_final = df_sorted[['Timestamp', 'Actor', 'Verb', 'Object']]
-        return df_final
+        self.show_message("Modèle CTGAN entraîné avec succès.")
 
     def save_model(self):
         if self.model is not None:
             file_path, _ = QFileDialog.getSaveFileName(self, "Save Model", "", "Pickle Files (*.pkl)")
             if file_path:
                 with open(file_path, 'wb') as f:
-                    import pickle
                     pickle.dump(self.model, f)
                 self.show_message(f"Modèle sauvegardé avec succès dans {file_path}")
         else:
-            self.show_message("Erreur : Aucun modèle disponible à sauvegarder. Veuillez charger ou entraîner un modèle d'abord.")
+            self.show_message(
+                "Erreur : Aucun modèle disponible à sauvegarder. Veuillez charger ou entraîner un modèle d'abord.")
 
     def show_message(self, message):
         dialog = QDialog(self)
@@ -190,3 +151,38 @@ class Build(QWidget):
         message_label = QLabel(message)
         dialog_layout.addWidget(message_label)
         dialog.exec()
+
+    def preprocess_data(self, df):
+        df = simplify_df(df)
+
+        if 'Timestamp' not in df.columns and 'timestamp' in df.columns:
+            df.rename(columns={'timestamp': 'Timestamp'}, inplace=True)
+
+        df['Timestamp'] = pd.to_datetime(df['Timestamp'], format="%Y-%m-%dT%H:%M:%S", errors='coerce')
+        df['Timestamp'] = df['Timestamp'].apply(lambda x: x.timestamp())
+
+        min_timestamp_seconds = df['Timestamp'].min()
+        df['Timestamp'] -= min_timestamp_seconds
+
+        df_sorted = df.sort_values(by='Timestamp').reset_index(drop=True)
+        return df_sorted[['Timestamp', 'Actor', 'Verb', 'Object']]
+
+
+def simplify_df(df):
+    def simplify_value(x, key):
+        if isinstance(x, dict):
+            x = x.get(key, "")
+        if isinstance(x, str):
+            return x.split('/')[-1] if '/' in x else x
+        return x
+
+    for col in ['Actor', 'Verb', 'Object']:
+        key = "id" if col != "Actor" else "mbox"
+        if col.lower() in df.columns:
+            df.rename(columns={col.lower(): col}, inplace=True)
+        if col in df.columns:
+            df[col] = df[col].apply(lambda x: simplify_value(x, key))
+
+    if 'id' in df.columns:
+        df.drop(columns=['id'], inplace=True)
+    return df

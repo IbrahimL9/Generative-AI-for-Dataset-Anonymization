@@ -44,3 +44,43 @@ BUTTON_STYLE = """
 """
 
 
+COMBOBOX_STYLE = """
+QComboBox {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 5px;
+    font-size: 14px;
+    font-family: "Montserrat", sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+QComboBox:drop-down {
+    border: 0px;
+}
+
+QComboBox QAbstractItemView {
+    border: 1px solid #ccc;
+    selection-background-color: #007BFF;
+    selection-color: white;
+    font-size: 14px;
+    font-family: "Montserrat", sans-serif;
+    background-color: #f9f9f9;
+}
+"""
+
+LINEEDIT_STYLE = """
+QLineEdit {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 5px;
+    font-size: 14px;
+    font-family: "Montserrat", sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+QLineEdit:focus {
+    border-color: #007BFF;
+}
+"""

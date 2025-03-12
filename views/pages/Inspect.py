@@ -123,14 +123,12 @@ class Inspect(QWidget):
         self.graph_layout.addWidget(self.create_verb_pie_chart(verb_counts), 2, 1)
 
     def clearStatistics(self):
-        """Supprime les anciens graphiques pour éviter les doublons."""
         while self.graph_layout.count():
             widget = self.graph_layout.takeAt(0).widget()
             if widget:
                 widget.deleteLater()
 
     def create_bar_chart(self, data, title):
-        """Crée un graphique en barres."""
         labels = list(data.keys())
         values = [data[label] for label in labels]
 
