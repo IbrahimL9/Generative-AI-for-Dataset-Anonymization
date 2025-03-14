@@ -8,10 +8,9 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from views.Styles import BUTTON_STYLE
+from views.Styles import BUTTON_STYLE, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYLE, WARNING_MESSAGE_STYLE, INFO_MESSAGE_STYLE
 from sdv.single_table import CTGANSynthesizer
 from sdv.metadata import SingleTableMetadata
-
 
 class TrainingThread(QThread):
     progress_update = pyqtSignal(str)
@@ -21,16 +20,24 @@ class TrainingThread(QThread):
         super().__init__()
         self.model = model
         self.df = df
+        self.progress_step = 0
+        self.total_steps = 100  # Nombre total d'itérations d'entraînement
 
     def run(self):
-        for i in range(1, 201):
-            time.sleep(0.04)
-            progress_msg = f"Gen. (0.83) | Discrim. (0.04): {int(i / 200 * 100)}% | {'█' * (i // 20)}{' ' * (10 - i // 20)} | {i}/200 [00:{i // 10:02d}<00:00, 24.62it/s]"
+        for epoch in range(self.total_steps):
+            # Simuler un calcul pour l'entraînement (ou un appel réel à self.model.fit)
+            time.sleep(0.5)  # Simuler un délai pour l'entraînement
+            self.update_progress(epoch)
+            if epoch == self.total_steps - 1:
+                self.model.fit(self.df)
+                self.model.fitted = True  # Marquer le modèle comme entraîné
+                self.training_finished.emit(self.model)
+
+    def update_progress(self, epoch):
+        # Limiter la fréquence des mises à jour à toutes les 10 étapes (par exemple)
+        if epoch % 10 == 0:
+            progress_msg = f"Gen. (0.83) | Discrim. (0.04): {int((epoch + 1) / self.total_steps * 100)}% | {'█' * (epoch // 20)}{' ' * (10 - epoch // 20)} | {epoch + 1}/{self.total_steps}"
             self.progress_update.emit(progress_msg)
-
-        self.model.fit(self.df)  # Entraînement réel du modèle
-        self.training_finished.emit(self.model)
-
 
 class Build(QWidget):
     def __init__(self, main_app, download_button, tools, model=None):
@@ -73,7 +80,7 @@ class Build(QWidget):
         font = QFont("Montserrat", 10, QFont.Weight.Medium)
         self.output_edit.setFont(font)
         self.output_edit.setStyleSheet("color: red;")
-        layout.addWidget(self.output_edit,alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.output_edit, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.setLayout(layout)
 
@@ -120,8 +127,9 @@ class Build(QWidget):
         self.training_thread.start()
 
     def update_output(self, text):
-        self.output_edit.setPlainText(text)  # Remplace au lieu d'ajouter
-        self.output_edit.verticalScrollBar().setValue(self.output_edit.verticalScrollBar().maximum())  # Auto-scroll
+        # Mettre à jour la sortie avec le texte de progression
+        self.output_edit.setPlainText(text)
+        self.output_edit.verticalScrollBar().setValue(self.output_edit.verticalScrollBar().maximum())
 
     def training_done(self, trained_model):
         self.model = trained_model
@@ -144,11 +152,22 @@ class Build(QWidget):
             self.show_message(
                 "Erreur : Aucun modèle disponible à sauvegarder. Veuillez charger ou entraîner un modèle d'abord.")
 
-    def show_message(self, message):
+    def show_message(self, message, message_type="info"):
         dialog = QDialog(self)
         dialog.setWindowTitle("Information")
         dialog_layout = QVBoxLayout(dialog)
         message_label = QLabel(message)
+
+        # Appliquer le style en fonction du type de message
+        if message_type == "success":
+            message_label.setStyleSheet(SUCCESS_MESSAGE_STYLE)
+        elif message_type == "error":
+            message_label.setStyleSheet(ERROR_MESSAGE_STYLE)
+        elif message_type == "warning":
+            message_label.setStyleSheet(WARNING_MESSAGE_STYLE)
+        else:
+            message_label.setStyleSheet(INFO_MESSAGE_STYLE)
+
         dialog_layout.addWidget(message_label)
         dialog.exec()
 
@@ -166,7 +185,6 @@ class Build(QWidget):
 
         df_sorted = df.sort_values(by='Timestamp').reset_index(drop=True)
         return df_sorted[['Timestamp', 'Actor', 'Verb', 'Object']]
-
 
 def simplify_df(df):
     def simplify_value(x, key):

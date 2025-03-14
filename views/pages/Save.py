@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QPushButton, QFileDial
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 import json
-from views.Styles import BUTTON_STYLE
+from views.Styles import BUTTON_STYLE , SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYLE, WARNING_MESSAGE_STYLE, INFO_MESSAGE_STYLE
 
 class Save(QWidget):
     def __init__(self, main_app):
@@ -50,10 +50,22 @@ class Save(QWidget):
                     json.dump(generated_data, file, ensure_ascii=False, indent=4)  # ✅ Ajoute des retours à la ligne
                 self.show_message("Données sauvegardées avec succès !")
 
-    def show_message(self, message):
+def show_message(self, message,message_type="info"):
         dialog = QDialog(self)
         dialog.setWindowTitle("Information")
         dialog_layout = QVBoxLayout(dialog)
         message_label = QLabel(message)
+
+        # Appliquer le style en fonction du type de message
+        if message_type == "success":
+            message_label.setStyleSheet(SUCCESS_MESSAGE_STYLE)
+        elif message_type == "error":
+            message_label.setStyleSheet(ERROR_MESSAGE_STYLE)
+        elif message_type == "warning":
+            message_label.setStyleSheet(WARNING_MESSAGE_STYLE)
+        else:
+            message_label.setStyleSheet(INFO_MESSAGE_STYLE)
+
+
         dialog_layout.addWidget(message_label)
         dialog.exec()
