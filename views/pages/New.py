@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 import pickle
+import joblib
 
 from views.Styles import BUTTON_STYLE2, BUTTON_STYLE3
 
@@ -79,7 +80,6 @@ class New(QWidget):
 
         main_layout.addLayout(self.model_selection_layout)
 
-        # Ajout d'un espacement pour descendre le bouton Continue
         main_layout.addSpacing(60)
 
         # Bouton Continue
@@ -89,6 +89,13 @@ class New(QWidget):
         main_layout.addWidget(self.continue_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
         main_layout.addSpacing(70)
+
+        # Barre de progression
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.setValue(0)
+        main_layout.addWidget(self.progress_bar, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.setLayout(main_layout)
 
@@ -128,6 +135,9 @@ class New(QWidget):
 
                 self.model_loaded.emit(self.model)
                 print("Signal de modèle chargé émis.")
+
+                # Correction du problème joblib
+                joblib.parallel_backend('loky', n_jobs=1)
             except Exception as e:
                 self.progress_bar.setVisible(False)
                 self.show_message(f"Erreur lors du chargement du modèle.\nDétails : {str(e)}")

@@ -3,12 +3,12 @@ import os
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QGridLayout, QLineEdit, QComboBox,
     QPushButton, QHBoxLayout, QSpacerItem, QSizePolicy, QMessageBox, 
-    QDialog, QDialogButtonBox, QInputDialog, QListWidget
+    QDialog, QDialogButtonBox, QInputDialog, QListWidget, QToolButton
 )
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 
-from views.Styles import BUTTON_STYLE, LINEEDIT_STYLE, COMBOBOX_STYLE , HISTORY_DIALOG_STYLE
+from views.Styles import BUTTON_STYLE, LINEEDIT_STYLE, COMBOBOX_STYLE , HISTORY_DIALOG_STYLE , INFO_MESSAGE_BOX_STYLE
 
 MAX_PARAMS = 100  # Limite de paramètres sauvegardés
 
@@ -39,15 +39,29 @@ class Tools(QWidget):
         param_layout.setHorizontalSpacing(40)
         param_layout.setVerticalSpacing(20)
 
-        def create_label_input_field(label_text, input_widget):
+        def create_label_input_field(label_text, input_widget, info_text):
             layout = QVBoxLayout()
             label = QLabel(label_text)
             label.setFont(QFont("Montserrat", 10, QFont.Weight.DemiBold))
             label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-            layout.addWidget(label)
+
+            # Ajout du bouton "❓" d'information
+            info_button = QToolButton()
+            info_button.setText("❓")  # Le bouton d'information
+            info_button.setStyleSheet("border: none; font-size: 14px;")
+            info_button.setFixedSize(20, 20)
+            info_button.clicked.connect(lambda: self.show_info_popup(label_text, info_text))  # Affiche la popup
+
+            # Création de l'alignement horizontal pour le label et le bouton d'information
+            label_layout = QHBoxLayout()
+            label_layout.addWidget(label)
+            label_layout.addWidget(info_button)
+            layout.addLayout(label_layout)
             layout.addWidget(input_widget)
+
             return layout
 
+        # Définition des champs avec leurs explications
         self.epochs_edit = QLineEdit("200")
         self.batch_size_edit = QLineEdit("500")
         self.gen_lr_edit = QLineEdit("0.002")
@@ -71,17 +85,29 @@ class Tools(QWidget):
         self.minmax_combo.addItems(["True", "False"])
         self.minmax_combo.setStyleSheet(COMBOBOX_STYLE)
 
-        param_layout.addLayout(create_label_input_field("Number of Epochs", self.epochs_edit), 0, 0)
-        param_layout.addLayout(create_label_input_field("Batch Size", self.batch_size_edit), 0, 1)
-        param_layout.addLayout(create_label_input_field("Generator Learning Rate", self.gen_lr_edit), 1, 0)
-        param_layout.addLayout(create_label_input_field("Discriminator Learning Rate", self.disc_lr_edit), 1, 1)
-        param_layout.addLayout(create_label_input_field("Embedding Dimension", self.embedding_dim_edit), 2, 0)
-        param_layout.addLayout(create_label_input_field("Generator Dimensions", self.generator_dim_edit), 2, 1)
-        param_layout.addLayout(create_label_input_field("Discriminator Dimensions", self.discriminator_dim_edit), 3, 0)
-        param_layout.addLayout(create_label_input_field("PAC (Grouping Factor)", self.pac_edit), 3, 1)
-        param_layout.addLayout(create_label_input_field("Verbose Mode", self.verbose_combo), 4, 0)
-        param_layout.addLayout(create_label_input_field("Enforce Min/Max Constraints", self.minmax_combo), 4, 1)
-        param_layout.addLayout(create_label_input_field("Number of Data to Generate", self.data_to_generate_edit), 5, 0)
+        # Ajouter des boutons d'information avec chaque champ
+        param_layout.addLayout(create_label_input_field("Number of Epochs ", self.epochs_edit, 
+                                                        "Nombre d'itérations pour entraîner le modèle."), 0, 0)
+        param_layout.addLayout(create_label_input_field("Batch Size ", self.batch_size_edit, 
+                                                        "Taille du lot de données traitées par l'algorithme."), 0, 1)
+        param_layout.addLayout(create_label_input_field("Generator Learning Rate ", self.gen_lr_edit, 
+                                                        "Taux d'apprentissage du générateur."), 1, 0)
+        param_layout.addLayout(create_label_input_field("Discriminator Learning Rate ", self.disc_lr_edit, 
+                                                        "Taux d'apprentissage du discriminateur."), 1, 1)
+        param_layout.addLayout(create_label_input_field("Embedding Dimension ", self.embedding_dim_edit, 
+                                                        "Taille de l'espace de représentation des variables catégoriques."), 2, 0)
+        param_layout.addLayout(create_label_input_field("Generator Dimensions ", self.generator_dim_edit, 
+                                                        "Architecture des couches cachées du générateur."), 2, 1)
+        param_layout.addLayout(create_label_input_field("Discriminator Dimensions ", self.discriminator_dim_edit, 
+                                                        "Architecture des couches cachées du discriminateur."), 3, 0)
+        param_layout.addLayout(create_label_input_field("PAC (Grouping Factor) ", self.pac_edit, 
+                                                        "Facteur de regroupement du discriminateur."), 3, 1)
+        param_layout.addLayout(create_label_input_field("Verbose Mode ", self.verbose_combo, 
+                                                        "Affiche ou non les logs détaillés."), 4, 0)
+        param_layout.addLayout(create_label_input_field("Enforce Min/Max Constraints ", self.minmax_combo, 
+                                                        "Applique des contraintes sur les valeurs générées."), 4, 1)
+        param_layout.addLayout(create_label_input_field("Number of Data to Generate ", self.data_to_generate_edit, 
+                                                        "Nombre total de lignes de données synthétiques."), 5, 0)
 
         main_layout.addLayout(param_layout)
         main_layout.addItem(QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
@@ -110,6 +136,20 @@ class Tools(QWidget):
         main_layout.addItem(QSpacerItem(20, 60, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
 
         self.setLayout(main_layout)
+
+    # Méthode pour afficher la fenêtre contextuelle d'informations
+        # Méthode pour afficher la fenêtre contextuelle d'informations
+    # Méthode pour afficher la fenêtre contextuelle d'informations
+    def show_info_popup(self, param_name, param_info):
+        """ Affiche une boîte de dialogue avec des explications sur un paramètre. """
+        msg = QMessageBox(self)
+        msg.setWindowTitle(param_name)
+        msg.setText(param_info)
+        msg.setStyleSheet(INFO_MESSAGE_BOX_STYLE)  # Applique le style à la boîte de message
+        msg.setFixedSize(400, 300)
+        msg.exec()
+
+
 
     def load_saved_parameters(self):
         if os.path.exists("params.json"):
