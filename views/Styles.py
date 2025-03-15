@@ -200,3 +200,36 @@ HISTORY_DIALOG_STYLE = """
         background-color: #6C6C6C;
     }
 """
+# Définir les styles pour les boutons
+BUTTON_STYLE2 = """
+QPushButton {
+    background-color: #736EA7;
+    color: black;
+    border: none;
+    padding: 20px;
+    width: 200px;
+    height: 150px;
+    text-align: center;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s;
+    font-size: 16px;
+}
+QPushButton:hover {
+    background-color: #7377C4;
+}
+"""
+
+BUTTON_STYLE3 = """
+QPushButton {
+    background-color: #4B66BE;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 15px 30px;
+    font-size: 18px;
+}
+QPushButton:hover {
+    background-color: #3B5998;
+}
+"""
