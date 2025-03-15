@@ -4,11 +4,12 @@ import pandas as pd
 import pickle
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QDialog, QPlainTextEdit, QApplication, QSpacerItem,
-    QSizePolicy
+    QSizePolicy, QHBoxLayout
 )
-from PyQt6.QtGui import QFont
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from views.Styles import BUTTON_STYLE, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYLE, WARNING_MESSAGE_STYLE, INFO_MESSAGE_STYLE
+from PyQt6.QtGui import QFont, QIcon
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
+from views.Styles import BUTTON_STYLE, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYLE, WARNING_MESSAGE_STYLE, \
+    INFO_MESSAGE_STYLE, BUTTON_STYLE2
 from sdv.single_table import CTGANSynthesizer
 from sdv.metadata import SingleTableMetadata
 
@@ -21,7 +22,7 @@ class TrainingThread(QThread):
         self.model = model
         self.df = df
         self.progress_step = 0
-        self.total_steps = 100  # Nombre total d'itérations d'entraînement
+        self.total_steps = 50
 
     def run(self):
         for epoch in range(self.total_steps):
@@ -50,37 +51,51 @@ class Build(QWidget):
 
     def initUI(self):
         layout = QVBoxLayout()
+        layout.addSpacing(30)
 
-        # Centrer les boutons et le texte
-        label = QLabel("Build Model")
-        label.setFont(QFont("Montserrat", 16, QFont.Weight.Bold))
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addItem(QSpacerItem(30, 10, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
-        layout.addWidget(label)
-        layout.addItem(QSpacerItem(20, 200, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        # Titre centré
+        title = QLabel("Build Model", self)
+        title.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title, alignment=Qt.AlignmentFlag.AlignTop)
 
-        self.train_button = QPushButton("Train Model")
-        self.train_button.clicked.connect(self.train_model)
-        self.train_button.setStyleSheet(BUTTON_STYLE)
-        self.train_button.setFixedWidth(200)
-        layout.addWidget(self.train_button, alignment=Qt.AlignmentFlag.AlignCenter)
+        # Layout pour les boutons
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(0)  # Pas d'espace entre les boutons
+        button_layout.setContentsMargins(0, 0, 0, 0)  # Pas de marges autour du layout
 
-        self.save_model_button = QPushButton("Save Model")
-        self.save_model_button.clicked.connect(self.save_model)
-        self.save_model_button.setStyleSheet(BUTTON_STYLE)
-        self.save_model_button.setFixedWidth(200)
+        # BOUTON "Train Model"
+        self.train_model_button = QPushButton("Train Model", self)
+        self.train_model_button.setStyleSheet(BUTTON_STYLE2)
+        self.train_model_button.setFixedSize(200, 150)
+        self.train_model_button.setIcon(QIcon("images/train.png"))
+        self.train_model_button.setIconSize(QSize(45, 45))
+        self.train_model_button.clicked.connect(self.train_model)
+        button_layout.addWidget(self.train_model_button)
+
+        # BOUTON "Save Model"
+        self.save_model_button = QPushButton("Save Model", self)
+        self.save_model_button.setStyleSheet(BUTTON_STYLE2)
+        self.save_model_button.setFixedSize(200, 150)
+        self.save_model_button.setIcon(QIcon("images/save.png"))
+        self.save_model_button.setIconSize(QSize(40, 40))
         self.save_model_button.setEnabled(False)
-        layout.addWidget(self.save_model_button, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.save_model_button.clicked.connect(self.save_model)
+        button_layout.addWidget(self.save_model_button)
 
-        layout.addItem(QSpacerItem(20, 400, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        # Ajouter le layout des boutons
+        layout.addLayout(button_layout)
+        layout.addSpacing(100)
 
-        self.output_edit = QPlainTextEdit()
+        # Zone de texte pour afficher les messages
+        self.output_edit = QPlainTextEdit(self)
         self.output_edit.setReadOnly(True)
         self.output_edit.setFrameStyle(0)
         font = QFont("Montserrat", 10, QFont.Weight.Medium)
         self.output_edit.setFont(font)
         self.output_edit.setStyleSheet("color: red;")
         layout.addWidget(self.output_edit, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addSpacing(22)
 
         self.setLayout(layout)
 

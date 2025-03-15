@@ -3,6 +3,7 @@ from statistics import mean, stdev
 from collections import Counter
 import plotly.express as px
 import plotly.io as pio
+from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QScrollArea
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -18,11 +19,13 @@ class Inspect(QWidget):
     def initUI(self):
         """Initialisation de l'interface utilisateur"""
         self.layout = QVBoxLayout()
-
+        self.layout.addSpacing(20)
         # Titre principal
         title = QLabel("STATISTICS")
+        title.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.layout.addWidget(title)
+
 
         # Widget pour les graphiques
         self.scroll_widget = QWidget()  # Créer un QWidget qui contiendra les graphiques
