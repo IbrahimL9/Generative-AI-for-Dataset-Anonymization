@@ -233,3 +233,35 @@ QPushButton:hover {
     background-color: #3B5998;
 }
 """
+
+############
+
+INFO_MESSAGE_BOX_STYLE = """
+QMessageBox {
+    background-color: #2c3e50;
+    color: white;
+    font-size: 14px;
+    border-radius: 10px;
+    padding: 20px;   /* Ajout de padding pour mieux espacer le texte */
+    min-width: 400px;  /* Largeur minimale pour éviter les coupures de texte */
+    min-height: 200px;  /* Hauteur minimale */
+}
+
+QMessageBox QLabel {
+    background-color: #2c3e50;
+    color: white;
+    font-size: 14px;
+    word-wrap: break-word;  /* Permet au texte de se couper proprement si trop long */
+}
+
+QMessageBox QPushButton {
+    background-color: #2980b9;
+    color: white;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+
+QMessageBox QPushButton:hover {
+    background-color: #3498db;
+}
+"""
