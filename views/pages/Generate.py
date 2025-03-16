@@ -12,10 +12,8 @@ import pandas as pd
 from views.Styles import BUTTON_STYLE, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYLE, WARNING_MESSAGE_STYLE, \
     INFO_MESSAGE_STYLE, BUTTON_STYLE2
 
-
 class Generate(QWidget):
-    # Déclaration du signal pour notifier que les données ont été générées
-    data_generated_signal = pyqtSignal()
+    data_generated_signal = pyqtSignal()  # Signal pour notifier que les données ont été générées
 
     def __init__(self, main_app):
         super().__init__()
@@ -134,8 +132,8 @@ class Generate(QWidget):
                 }
                 self.generated_data.append(entry)
         self.data_generated = True
+        self.data_generated_signal.emit()  # Émettre le signal lorsque les données sont générées
         self.show_message(f"{num_records} données générées avec succès.")
-
 
     def save_generated_data(self):
         if not self.data_generated:
