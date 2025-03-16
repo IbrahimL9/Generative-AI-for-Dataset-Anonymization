@@ -56,7 +56,7 @@ class Menu(QListWidget):
             "Tools": 5,
             "Generate": 6,
             "Analysis": 7,
-            "Save": 6,
+            "Save":8,
             "About": 9
         }
         self.pages = [

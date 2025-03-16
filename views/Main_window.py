@@ -78,8 +78,7 @@ class AnonymizationApp(QWidget):
         self.menu.setEnabled(True)
 
     def changePage(self, index):
-        """Gère le changement de page avec vérification des prérequis."""
-        # Vérification : empêche l'accès à certaines pages si aucun fichier n'est chargé
+        # Vérification pour les pages Open, Display, Inspect reste inchangée
         if index in [1, 2] and (
                 not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None):
             QMessageBox.warning(
@@ -89,16 +88,6 @@ class AnonymizationApp(QWidget):
             )
             return
 
-        # Vérification : empêche l'accès à la page "Save" si les données ne sont pas encore générées
-        if index == 8 and not self.pages["save"].data_generated:
-            QMessageBox.warning(
-                self,
-                "Données non générées",
-                "Veuillez d'abord générer des données avant de les sauvegarder."
-            )
-            return
-
-        # ✅ Changement de page normal
         self.stacked_widget.setCurrentIndex(index)
 
     def resetMenuSelection(self, index):

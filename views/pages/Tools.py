@@ -2,154 +2,267 @@ import json
 import os
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QGridLayout, QLineEdit, QComboBox,
-    QPushButton, QHBoxLayout, QSpacerItem, QSizePolicy, QMessageBox, 
-    QDialog, QDialogButtonBox, QInputDialog, QListWidget, QToolButton
+    QPushButton, QHBoxLayout, QSpacerItem, QSizePolicy, QMessageBox,
+    QDialog, QDialogButtonBox, QInputDialog, QListWidget, QToolButton, QGroupBox, QFormLayout
 )
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 
-from views.Styles import BUTTON_STYLE, LINEEDIT_STYLE, COMBOBOX_STYLE , HISTORY_DIALOG_STYLE , INFO_MESSAGE_BOX_STYLE
+from views.Styles import BUTTON_STYLE, LINEEDIT_STYLE, COMBOBOX_STYLE, HISTORY_DIALOG_STYLE, INFO_MESSAGE_BOX_STYLE, \
+    BUTTON_STYLE3
 
-MAX_PARAMS = 100  # Limite de paramètres sauvegardés
+MAX_PARAMS = 100  # Maximum number of saved parameter sets
+
 
 class Tools(QWidget):
     def __init__(self):
         super().__init__()
-        self.saved_params = {}  
-        self.load_saved_parameters()  
+        self.saved_params = {}
+        self.load_saved_parameters()
         self.initUI()
 
     def initUI(self):
         main_layout = QVBoxLayout()
+
+        main_layout.setContentsMargins(0, 20, 0, 0)
 
         title_label = QLabel("Model Parameters")
         title_label.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(title_label)
 
-        main_layout.addItem(QSpacerItem(20, 30, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        main_layout.addSpacing(20)
 
-        param_title = QLabel("CTGAN MODEL :")
-        param_title.setFont(QFont("Montserrat", 14, QFont.Weight.Bold))
-        main_layout.addWidget(param_title)
+        def create_form_row(text, widget, tooltip):
+            """Crée un label avec puce et tooltip (ni le label ni le widget ne sont en gras),
+            puis renvoie (label, widget)."""
+            label = QLabel(f"• {text}")
+            # Utilise un poids normal pour la police
+            label.setFont(QFont("Montserrat", 10, QFont.Weight.Normal))
+            label.setToolTip(tooltip)  # Affiche la bulle d'info au survol du label
+            widget.setToolTip(tooltip)  # Affiche la bulle d'info au survol du champ
+            return label, widget
 
-        main_layout.addItem(QSpacerItem(10, 5, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        # -------- Layout principal en grille pour les sections --------
+        sections_layout = QGridLayout()
+        sections_layout.setHorizontalSpacing(50)
+        sections_layout.setVerticalSpacing(30)
 
-        param_layout = QGridLayout()
-        param_layout.setHorizontalSpacing(40)
-        param_layout.setVerticalSpacing(20)
+        # =======================================================================
+        # SECTION TRAINING (colonne 0, ligne 0/1)
+        # =======================================================================
+        training_title = QLabel("Training")
+        training_title.setFont(QFont("Montserrat", 14, QFont.Weight.Bold))
 
-        def create_label_input_field(label_text, input_widget, info_text):
-            layout = QVBoxLayout()
-            label = QLabel(label_text)
-            label.setFont(QFont("Montserrat", 10, QFont.Weight.DemiBold))
-            label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        training_form = QFormLayout()
+        training_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        training_form.setHorizontalSpacing(40)
+        training_form.setVerticalSpacing(15)
 
-            # Ajout du bouton "❓" d'information
-            info_button = QToolButton()
-            info_button.setText("❓")  # Le bouton d'information
-            info_button.setStyleSheet("border: none; font-size: 14px;")
-            info_button.setFixedSize(20, 20)
-            info_button.clicked.connect(lambda: self.show_info_popup(label_text, info_text))  # Affiche la popup
-
-            # Création de l'alignement horizontal pour le label et le bouton d'information
-            label_layout = QHBoxLayout()
-            label_layout.addWidget(label)
-            label_layout.addWidget(info_button)
-            layout.addLayout(label_layout)
-            layout.addWidget(input_widget)
-
-            return layout
-
-        # Définition des champs avec leurs explications
+        # Champs "Training"
         self.epochs_edit = QLineEdit("200")
-        self.batch_size_edit = QLineEdit("500")
-        self.gen_lr_edit = QLineEdit("0.002")
-        self.disc_lr_edit = QLineEdit("0.002")
-        self.embedding_dim_edit = QLineEdit("128")
-        self.generator_dim_edit = QLineEdit("256,256")
-        self.discriminator_dim_edit = QLineEdit("256,256")
-        self.pac_edit = QLineEdit("10")
-        self.data_to_generate_edit = QLineEdit("2000")
+        self.epochs_edit.setStyleSheet(LINEEDIT_STYLE)
 
-        for field in [self.epochs_edit, self.batch_size_edit, self.gen_lr_edit, self.disc_lr_edit,
-                      self.embedding_dim_edit, self.generator_dim_edit, self.discriminator_dim_edit,
-                      self.pac_edit, self.data_to_generate_edit]:
-            field.setStyleSheet(LINEEDIT_STYLE)
+        self.batch_size_edit = QLineEdit("500")
+        self.batch_size_edit.setStyleSheet(LINEEDIT_STYLE)
 
         self.verbose_combo = QComboBox()
         self.verbose_combo.addItems(["True", "False"])
         self.verbose_combo.setStyleSheet(COMBOBOX_STYLE)
 
+        # Ajout dans le form layout, avec tooltip pour chaque paramètre en minuscules
+        label_epochs, widget_epochs = create_form_row(
+            "number of epochs:",
+            self.epochs_edit,
+            "number of training iterations (epochs) to run during model training."
+        )
+        training_form.addRow(label_epochs, widget_epochs)
+
+        label_batch, widget_batch = create_form_row(
+            "batch size:",
+            self.batch_size_edit,
+            "number of samples processed in a single training batch."
+        )
+        training_form.addRow(label_batch, widget_batch)
+
+        label_verbose, widget_verbose = create_form_row(
+            "verbose mode:",
+            self.verbose_combo,
+            "display detailed training logs."
+        )
+        training_form.addRow(label_verbose, widget_verbose)
+
+        # Placement dans la grille
+        sections_layout.addWidget(training_title, 0, 0)  # Titre
+        sections_layout.addLayout(training_form, 1, 0)  # Formulaire
+
+        # =======================================================================
+        # SECTION GENERATOR PARAMETERS (colonne 1, ligne 0/1)
+        # =======================================================================
+        generator_title = QLabel("Generator Parameters")
+        generator_title.setFont(QFont("Montserrat", 14, QFont.Weight.Bold))
+
+        generator_form = QFormLayout()
+        generator_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        generator_form.setHorizontalSpacing(40)
+        generator_form.setVerticalSpacing(15)
+
+        # Champs "Generator"
+        self.gen_lr_edit = QLineEdit("0.002")
+        self.gen_lr_edit.setStyleSheet(LINEEDIT_STYLE)
+
+        self.generator_dim_edit = QLineEdit("256,256")
+        self.generator_dim_edit.setStyleSheet(LINEEDIT_STYLE)
+
+        self.embedding_dim_edit = QLineEdit("128")
+        self.embedding_dim_edit.setStyleSheet(LINEEDIT_STYLE)
+
+        # Ajout avec tooltip en minuscules
+        label_gen_lr, widget_gen_lr = create_form_row(
+            "generator learning rate:",
+            self.gen_lr_edit,
+            "step size used to update the generator's weights."
+        )
+        generator_form.addRow(label_gen_lr, widget_gen_lr)
+
+        label_gen_dim, widget_gen_dim = create_form_row(
+            "generator dimensions:",
+            self.generator_dim_edit,
+            "comma-separated list of neurons per hidden layer in the generator."
+        )
+        generator_form.addRow(label_gen_dim, widget_gen_dim)
+
+        label_embed_dim, widget_embed_dim = create_form_row(
+            "embedding dimension:",
+            self.embedding_dim_edit,
+            "dimension of the embedding vector for categorical features."
+        )
+        generator_form.addRow(label_embed_dim, widget_embed_dim)
+
+        # Placement dans la grille
+        sections_layout.addWidget(generator_title, 0, 1)
+        sections_layout.addLayout(generator_form, 1, 1)
+
+        # =======================================================================
+        # SECTION DISCRIMINATOR PARAMETERS (colonne 0, ligne 2/3)
+        # =======================================================================
+        discriminator_title = QLabel("Discriminator Parameters")
+        discriminator_title.setFont(QFont("Montserrat", 14, QFont.Weight.Bold))
+
+        discriminator_form = QFormLayout()
+        discriminator_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        discriminator_form.setHorizontalSpacing(40)
+        discriminator_form.setVerticalSpacing(15)
+
+        # Champs "Discriminator"
+        self.disc_lr_edit = QLineEdit("0.002")
+        self.disc_lr_edit.setStyleSheet(LINEEDIT_STYLE)
+
+        self.discriminator_dim_edit = QLineEdit("256,256")
+        self.discriminator_dim_edit.setStyleSheet(LINEEDIT_STYLE)
+
+        self.pac_edit = QLineEdit("10")
+        self.pac_edit.setStyleSheet(LINEEDIT_STYLE)
+
+        # Ajout avec tooltip en minuscules
+        label_disc_lr, widget_disc_lr = create_form_row(
+            "discriminator learning rate:",
+            self.disc_lr_edit,
+            "step size used to update the discriminator's weights."
+        )
+        discriminator_form.addRow(label_disc_lr, widget_disc_lr)
+
+        label_disc_dim, widget_disc_dim = create_form_row(
+            "discriminator dimensions:",
+            self.discriminator_dim_edit,
+            "comma-separated list of neurons per hidden layer in the discriminator."
+        )
+        discriminator_form.addRow(label_disc_dim, widget_disc_dim)
+
+        label_pac, widget_pac = create_form_row(
+            "pac (grouping factor):",
+            self.pac_edit,
+            "number of samples grouped together for the discriminator's loss calculation."
+        )
+        discriminator_form.addRow(label_pac, widget_pac)
+
+        # Placement dans la grille
+        sections_layout.addWidget(discriminator_title, 2, 0)
+        sections_layout.addLayout(discriminator_form, 3, 0)
+
+        # =======================================================================
+        # SECTION ADVANCED OPTIONS (colonne 1, ligne 2/3)
+        # =======================================================================
+        advanced_title = QLabel("Advanced Options")
+        advanced_title.setFont(QFont("Montserrat", 14, QFont.Weight.Bold))
+
+        advanced_form = QFormLayout()
+        advanced_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        advanced_form.setHorizontalSpacing(40)
+        advanced_form.setVerticalSpacing(15)
+
+        # Champs "Advanced"
         self.minmax_combo = QComboBox()
         self.minmax_combo.addItems(["True", "False"])
         self.minmax_combo.setStyleSheet(COMBOBOX_STYLE)
 
-        # Ajouter des boutons d'information avec chaque champ
-        param_layout.addLayout(create_label_input_field("Number of Epochs ", self.epochs_edit, 
-                                                        "Nombre d'itérations pour entraîner le modèle."), 0, 0)
-        param_layout.addLayout(create_label_input_field("Batch Size ", self.batch_size_edit, 
-                                                        "Taille du lot de données traitées par l'algorithme."), 0, 1)
-        param_layout.addLayout(create_label_input_field("Generator Learning Rate ", self.gen_lr_edit, 
-                                                        "Taux d'apprentissage du générateur."), 1, 0)
-        param_layout.addLayout(create_label_input_field("Discriminator Learning Rate ", self.disc_lr_edit, 
-                                                        "Taux d'apprentissage du discriminateur."), 1, 1)
-        param_layout.addLayout(create_label_input_field("Embedding Dimension ", self.embedding_dim_edit, 
-                                                        "Taille de l'espace de représentation des variables catégoriques."), 2, 0)
-        param_layout.addLayout(create_label_input_field("Generator Dimensions ", self.generator_dim_edit, 
-                                                        "Architecture des couches cachées du générateur."), 2, 1)
-        param_layout.addLayout(create_label_input_field("Discriminator Dimensions ", self.discriminator_dim_edit, 
-                                                        "Architecture des couches cachées du discriminateur."), 3, 0)
-        param_layout.addLayout(create_label_input_field("PAC (Grouping Factor) ", self.pac_edit, 
-                                                        "Facteur de regroupement du discriminateur."), 3, 1)
-        param_layout.addLayout(create_label_input_field("Verbose Mode ", self.verbose_combo, 
-                                                        "Affiche ou non les logs détaillés."), 4, 0)
-        param_layout.addLayout(create_label_input_field("Enforce Min/Max Constraints ", self.minmax_combo, 
-                                                        "Applique des contraintes sur les valeurs générées."), 4, 1)
-        param_layout.addLayout(create_label_input_field("Number of Data to Generate ", self.data_to_generate_edit, 
-                                                        "Nombre total de lignes de données synthétiques."), 5, 0)
+        # Ajout avec tooltip en minuscules
+        label_minmax, widget_minmax = create_form_row(
+            "enforce min/max constraints:",
+            self.minmax_combo,
+            "enforce minimum and maximum value constraints on the generated outputs."
+        )
+        advanced_form.addRow(label_minmax, widget_minmax)
 
-        main_layout.addLayout(param_layout)
-        main_layout.addItem(QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        # Placement dans la grille
+        sections_layout.addWidget(advanced_title, 2, 1)
+        sections_layout.addLayout(advanced_form, 3, 1)
 
-        button_layout = QHBoxLayout()
+        # Ajout de la grille au layout principal
+        main_layout.addLayout(sections_layout)
+
+        # -------- Espace avant les boutons --------
+        main_layout.addSpacing(30)
+
+        # =======================================================================
+        # BOUTONS EN BAS (Confirm, Save, Select)
+        # =======================================================================
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(20)
+        buttons_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.confirm_button = QPushButton("Confirm")
         self.confirm_button.setStyleSheet(BUTTON_STYLE)
         self.confirm_button.setFixedSize(140, 50)
         self.confirm_button.clicked.connect(self.confirm_parameters)
-        button_layout.addWidget(self.confirm_button)
+        buttons_layout.addWidget(self.confirm_button)
 
         self.save_button = QPushButton("Save")
         self.save_button.setStyleSheet(BUTTON_STYLE)
         self.save_button.setFixedSize(140, 50)
         self.save_button.clicked.connect(self.save_parameters)
-        button_layout.addWidget(self.save_button)
+        buttons_layout.addWidget(self.save_button)
 
         self.select_button = QPushButton("Select")
         self.select_button.setStyleSheet(BUTTON_STYLE)
         self.select_button.setFixedSize(140, 50)
         self.select_button.clicked.connect(self.select_parameter)
-        button_layout.addWidget(self.select_button)
+        buttons_layout.addWidget(self.select_button)
 
-        main_layout.addLayout(button_layout)
-        main_layout.addItem(QSpacerItem(20, 60, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        main_layout.addLayout(buttons_layout)
+        main_layout.addSpacing(20)
 
         self.setLayout(main_layout)
 
-    # Méthode pour afficher la fenêtre contextuelle d'informations
-        # Méthode pour afficher la fenêtre contextuelle d'informations
-    # Méthode pour afficher la fenêtre contextuelle d'informations
+    # Method to display the information popup
     def show_info_popup(self, param_name, param_info):
-        """ Affiche une boîte de dialogue avec des explications sur un paramètre. """
+        """ Displays a dialog box with explanations for a parameter. """
         msg = QMessageBox(self)
         msg.setWindowTitle(param_name)
         msg.setText(param_info)
-        msg.setStyleSheet(INFO_MESSAGE_BOX_STYLE)  # Applique le style à la boîte de message
+        msg.setStyleSheet(INFO_MESSAGE_BOX_STYLE)  # Apply style to the message box
         msg.setFixedSize(400, 300)
         msg.exec()
-
-
 
     def load_saved_parameters(self):
         if os.path.exists("params.json"):
@@ -163,7 +276,8 @@ class Tools(QWidget):
 
     def save_parameters(self):
         if len(self.saved_params) >= MAX_PARAMS:
-            QMessageBox.warning(self, "Limit Reached", "You have reached the maximum of 100 saved parameters. Please delete one before saving a new one.")
+            QMessageBox.warning(self, "Limit Reached",
+                                "You have reached the maximum of 100 saved parameters. Please delete one before saving a new one.")
             return
 
         name, ok = QInputDialog.getText(self, "Save Parameter", "Enter a name for this parameter set:")
@@ -196,20 +310,38 @@ class Tools(QWidget):
         history_dialog = QDialog(self)
         history_dialog.setWindowTitle("Select or Delete Parameter")
         history_dialog.setStyleSheet(HISTORY_DIALOG_STYLE)
-        
+
         history_layout = QVBoxLayout()
         history_list_widget = QListWidget()
         history_list_widget.addItems(self.saved_params.keys())
         history_layout.addWidget(history_list_widget)
 
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        button_box.accepted.connect(lambda: self.handle_selection(history_list_widget, history_dialog))
-        button_box.rejected.connect(history_dialog.reject)
-        history_layout.addWidget(button_box)
+        # Création d'un layout horizontal pour aligner les 3 boutons
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(20)
+        buttons_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        ok_button = QPushButton("Ok")
+        ok_button.setStyleSheet("background-color: #4B66BE; color: white; border: none; border-radius: 10px; font-size: 13px;")
+        ok_button.setFixedSize(100, 30)
+        ok_button.clicked.connect(lambda: self.handle_selection(history_list_widget, history_dialog))
+        buttons_layout.addWidget(ok_button)
+
+        cancel_button = QPushButton("Cancel")
+        cancel_button.setStyleSheet("background-color: #4B66BE; color: white; border: none; border-radius: 10px; font-size: 13px;")
+
+        cancel_button.setFixedSize(100, 30)
+        cancel_button.clicked.connect(history_dialog.reject)
+        buttons_layout.addWidget(cancel_button)
 
         delete_button = QPushButton("Delete")
+        delete_button.setStyleSheet("background-color: #4B66BE; color: white; border: none; border-radius: 10px; font-size: 13px;")
+
+        delete_button.setFixedSize(100, 30)
         delete_button.clicked.connect(lambda: self.delete_parameter(history_list_widget))
-        history_layout.addWidget(delete_button)
+        buttons_layout.addWidget(delete_button)
+
+        history_layout.addLayout(buttons_layout)
 
         history_dialog.setLayout(history_layout)
         history_dialog.exec()
@@ -231,7 +363,7 @@ class Tools(QWidget):
             QMessageBox.information(self, "Deleted", f"Parameter '{selected_name}' has been deleted.")
 
     def load_selected_parameters(self, params):
-        # Charge les paramètres dans les champs correspondants
+        # Load parameters into the corresponding fields
         self.epochs_edit.setText(params["epochs"])
         self.batch_size_edit.setText(params["batch_size"])
         self.gen_lr_edit.setText(params["gen_lr"])
