@@ -13,7 +13,6 @@ from views.Styles import BUTTON_STYLE, LINEEDIT_STYLE, COMBOBOX_STYLE, HISTORY_D
 
 MAX_PARAMS = 100  # Maximum number of saved parameter sets
 
-
 class Tools(QWidget):
     def __init__(self):
         super().__init__()
@@ -206,6 +205,9 @@ class Tools(QWidget):
         self.minmax_combo.addItems(["True", "False"])
         self.minmax_combo.setStyleSheet(COMBOBOX_STYLE)
 
+        self.data_to_generate_edit = QLineEdit("2000")  # Ajout du champ manquant
+        self.data_to_generate_edit.setStyleSheet(LINEEDIT_STYLE)
+
         # Ajout avec tooltip en minuscules
         label_minmax, widget_minmax = create_form_row(
             "enforce min/max constraints:",
@@ -213,6 +215,13 @@ class Tools(QWidget):
             "enforce minimum and maximum value constraints on the generated outputs."
         )
         advanced_form.addRow(label_minmax, widget_minmax)
+
+        label_data_to_generate, widget_data_to_generate = create_form_row(
+            "number of data to generate:",
+            self.data_to_generate_edit,
+            "number of data samples to generate."
+        )
+        advanced_form.addRow(label_data_to_generate, widget_data_to_generate)
 
         # Placement dans la grille
         sections_layout.addWidget(advanced_title, 2, 1)

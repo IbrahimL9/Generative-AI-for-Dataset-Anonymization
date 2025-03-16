@@ -8,13 +8,11 @@ import json
 from views.Styles import SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYLE, WARNING_MESSAGE_STYLE, \
     INFO_MESSAGE_STYLE, BUTTON_STYLE2
 
-
 class Save(QWidget):
     def __init__(self, main_app):
         super().__init__()
         self.main_app = main_app
-        # Les données à sauvegarder doivent être affectées via un autre mécanisme.
-        self.generated_data = None
+        self.data_generated = False
         self.initUI()
 
     def initUI(self):
@@ -33,7 +31,7 @@ class Save(QWidget):
         # Layout horizontal pour les boutons
         buttons_layout = QHBoxLayout()
         buttons_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        buttons_layout.setSpacing(40)  #
+        buttons_layout.setSpacing(40)
 
         self.save_button = QPushButton("Save Data")
         self.save_button.setStyleSheet(BUTTON_STYLE2)
@@ -60,9 +58,15 @@ class Save(QWidget):
         self.display_button.setEnabled(False)
         self.save_button.setEnabled(False)
 
+    def on_data_generated(self):
+        """Méthode pour activer les boutons lorsque les données sont générées."""
+        self.data_generated = True
+        self.save_button.setEnabled(True)
+        self.display_button.setEnabled(True)
+
     def display_data(self):
         # Vérifie si les données ont été générées
-        if not self.generated_data:
+        if not self.data_generated:
             QMessageBox.warning(self, "Error", "No data available to display.")
             return
 
@@ -79,7 +83,8 @@ class Save(QWidget):
         content_layout = QVBoxLayout(content_widget)
 
         # Affiche le JSON dans un QLabel (vous pouvez utiliser QPlainTextEdit pour une édition en lecture seule)
-        data_str = json.dumps(self.generated_data, indent=4, ensure_ascii=False)
+        generated_data = self.main_app.pages["generate"].generated_data
+        data_str = json.dumps(generated_data, indent=4, ensure_ascii=False)
         data_label = QLabel(data_str)
         data_label.setFont(QFont("Courier", 10))
         data_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -91,17 +96,20 @@ class Save(QWidget):
         dialog.exec()
 
     def save_data(self):
-        if not self.generated_data:
-            QMessageBox.warning(self, "Error", "No data available to save.")
+        if not self.data_generated:
+            QMessageBox.warning(self, "Erreur", "Aucune donnée à sauvegarder.")
             return
 
         file_dialog = QFileDialog()
-        file_name, _ = file_dialog.getSaveFileName(self, "Save Data", "", "JSON Files (*.json)")
+        file_name, _ = file_dialog.getSaveFileName(self, "Enregistrer les données", "", "JSON Files (*.json)")
 
         if file_name:
-            with open(file_name, "w", encoding="utf-8") as file:
-                json.dump(self.generated_data, file, ensure_ascii=False, indent=4)
-            self.show_message("Data saved successfully!", message_type="success")
+            generated_data = self.main_app.pages["generate"].generated_data
+
+            if generated_data:
+                with open(file_name, "w", encoding="utf-8") as file:
+                    json.dump(generated_data, file, ensure_ascii=False, indent=4)
+                self.show_message("Données sauvegardées avec succès !", message_type="success")
 
     def show_message(self, message, message_type="info"):
         dialog = QDialog(self)
@@ -109,6 +117,7 @@ class Save(QWidget):
         dialog_layout = QVBoxLayout(dialog)
         message_label = QLabel(message)
 
+        # Appliquer le style en fonction du type de message
         if message_type == "success":
             message_label.setStyleSheet(SUCCESS_MESSAGE_STYLE)
         elif message_type == "error":
