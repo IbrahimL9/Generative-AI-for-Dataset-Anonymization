@@ -27,7 +27,7 @@ QListWidget::item:selected {
 
 BUTTON_STYLE = """
     QPushButton {
-        background-color: #4CAF50;
+        background-color: #4B66BE;
         color: white;
         border: none;
         border-radius: 10px;
@@ -36,10 +36,7 @@ BUTTON_STYLE = """
         border: none;
     }
     QPushButton:hover {
-        background-color: #45a049;
-    }
-    QPushButton:pressed {
-        background-color: #388E3C;
+        background-color: #3B5998;
     }
 """
 
@@ -104,7 +101,7 @@ SUCCESS_MESSAGE_STYLE = """
 
 ERROR_MESSAGE_STYLE = """
     QLabel {
-        background-color: #f44336;  /* Rouge */
+        background-color: #f44336;
         color: white;
         padding: 15px;
         font-size: 16px;

@@ -25,7 +25,7 @@ class Open(QWidget):
     def initUI(self):
         layout = QVBoxLayout()
 
-        layout.addSpacing(30)
+        layout.addSpacing(20)
 
         title = QLabel("Generative AI for Dataset Anonymization")
         title.setFont(QFont("Montserrat", 16, QFont.Weight.Bold))

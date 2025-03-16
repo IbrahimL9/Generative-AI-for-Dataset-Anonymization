@@ -59,10 +59,10 @@ class Build(QWidget):
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title, alignment=Qt.AlignmentFlag.AlignTop)
 
+        layout.addSpacing(32)
         # Layout pour les boutons
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(0)  # Pas d'espace entre les boutons
-        button_layout.setContentsMargins(0, 0, 0, 0)  # Pas de marges autour du layout
+        button_layout.setContentsMargins(0, 0, 0, 0)
 
         # BOUTON "Train Model"
         self.train_model_button = QPushButton("Train Model", self)

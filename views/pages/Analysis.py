@@ -6,8 +6,8 @@ class Analysis(QWidget):
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout()
-        label = QLabel("Analysis1")
-        label.setFont(QFont("Montserrat", 14, QFont.Weight.Bold))
+        label = QLabel("Analysis")
+        label.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
         self.setLayout(layout)

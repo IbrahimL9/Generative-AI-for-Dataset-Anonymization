@@ -3,13 +3,15 @@ import uuid
 from datetime import datetime
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QFormLayout, QLineEdit, QPushButton,
-    QProgressBar, QMessageBox, QDialog, QFileDialog, QSpacerItem, QSizePolicy
+    QProgressBar, QMessageBox, QDialog, QFileDialog, QSpacerItem, QSizePolicy, QHBoxLayout
 )
-from PyQt6.QtGui import QFont
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QFont, QIcon
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QSize
 import json
 import pandas as pd
-from views.Styles import BUTTON_STYLE, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYLE, WARNING_MESSAGE_STYLE, INFO_MESSAGE_STYLE
+from views.Styles import BUTTON_STYLE, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYLE, WARNING_MESSAGE_STYLE, \
+    INFO_MESSAGE_STYLE, BUTTON_STYLE2
+
 
 class Generate(QWidget):
     # Déclaration du signal pour notifier que les données ont été générées
@@ -26,64 +28,28 @@ class Generate(QWidget):
         self.initUI()
 
     def initUI(self):
-        layout = QVBoxLayout()
-        layout.setSpacing(10)
+        main_layout = QVBoxLayout()
+        main_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        main_layout.addSpacing(20)
 
-        # Titre
+        # Titre centré
         title = QLabel("Generate")
-        title.setFont(QFont("Montserrat", 24, QFont.Weight.Bold))
+        title.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title, alignment=Qt.AlignmentFlag.AlignTop)
+        main_layout.addWidget(title)
+        main_layout.addSpacing(100)
 
-        # Espacement sous le titre
-        layout.addSpacing(10)
-
-        # Formulaire
+        # Création du formulaire
         form_layout = QFormLayout()
-        form_layout.setContentsMargins(200, 10, 10, 10)  # Décale vers la droite
-
+        form_layout.setSpacing(10)
+        # Label pour le formulaire
+        txt = QLabel("Number of Data to Generate:")
+        txt.setFont(QFont("Montserrat", 14))
+        txt.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Champ de saisie
         self.records_input = QLineEdit("1000")
-        self.records_input.setFixedWidth(300)
-        self.records_input.setAlignment(Qt.AlignmentFlag.AlignCenter)  # Centrer le texte
-        form_layout.addRow("Number of Data to Generate:", self.records_input)
-        layout.addLayout(form_layout)
-
-        # 🔴 Réduction de l'espace AVANT le bouton "Generate"
-        layout.addSpacing(-150)
-
-        # Bouton "Generate"
-        self.generate_button = QPushButton("Generate")
-        self.generate_button.setStyleSheet(BUTTON_STYLE)
-        self.generate_button.setFixedSize(150, 50)
-        self.generate_button.clicked.connect(self.generate_data)
-        layout.addWidget(self.generate_button, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        # 🔵 Ajout d’un espace neutre sous le bouton pour ne pas impacter le reste
-        layout.addSpacerItem(QSpacerItem(300, 150, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed))
-
-        # Barre de progression
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setFixedWidth(300)
-        self.progress_bar.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.progress_bar.setRange(0, 0)  # Mode indéterminé
-        self.progress_bar.setVisible(False)
-        layout.addWidget(self.progress_bar, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        # Espacement sous la barre de progression
-        layout.addSpacing(5)
-
-        # Bouton "Save"
-        self.save_button = QPushButton("Save")
-        self.save_button.setStyleSheet(BUTTON_STYLE)
-        self.save_button.setFixedSize(150, 50)
-        self.save_button.setVisible(False)
-        self.save_button.clicked.connect(self.save_generated_data)
-        layout.addWidget(self.save_button, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        self.setLayout(layout)
-        self.setWindowTitle("Generative AI for Dataset Anonymization")
-
-        # Appliquer le style au champ de saisie
+        self.records_input.setFixedWidth(200)
+        self.records_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.records_input.setStyleSheet("""
             QLineEdit {
                 background-color: #f0f0f0;
@@ -94,6 +60,36 @@ class Generate(QWidget):
                 color: #333;
             }
         """)
+        form_layout.addRow(txt, self.records_input)
+
+        # Encapsulation du form_layout dans un QHBoxLayout pour le centrer horizontalement
+        form_container = QHBoxLayout()
+        form_container.addStretch(1)
+        form_container.addLayout(form_layout)
+        form_container.addStretch(1)
+        main_layout.addLayout(form_container)
+
+        main_layout.addSpacing(40)
+
+        # Bouton "Generate" centré
+        self.generate_button = QPushButton("Generate")
+        self.generate_button.setStyleSheet(BUTTON_STYLE2)
+        self.generate_button.setFixedSize(200, 150)
+        self.generate_button.setIcon(QIcon("images/generate.png"))
+        self.generate_button.setIconSize(QSize(45, 45))
+        self.generate_button.clicked.connect(self.generate_data)
+        main_layout.addWidget(self.generate_button, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # Barre de progression (invisible au départ)
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setFixedWidth(300)
+        self.progress_bar.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.progress_bar.setRange(0, 0)  # Mode indéterminé
+        self.progress_bar.setVisible(False)
+        main_layout.addWidget(self.progress_bar, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        self.setLayout(main_layout)
+        self.setWindowTitle("Generative AI for Dataset Anonymization")
 
     def on_model_loaded(self, model):
         self.model = model
@@ -127,37 +123,19 @@ class Generate(QWidget):
 
         if self.model:
             df = self.model.sample(num_records)  # Génération des données sous forme de DataFrame
-            print("🔍 Données générées :", df)
-
-            # ✅ Transformation des données en format JSON détaillé
-            #self.generated_data = []
-            #for _, row in df.iterrows():
-                #entry = {
-                    #"id": str(uuid.uuid4()),  # Générer un UUID unique pour chaque entrée
-                    #"timestamp": datetime.now().isoformat(),  # Ajouter un timestamp formaté
             self.generated_data = []
             for index, row in df.iterrows():
                 entry = {
-                    "id": str(uuid.uuid4()),  # Utilisation de l'index pour générer un ID dans le format souhaité
-                    "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),  # Format du timestamp sans millisecondes
-                    "verb": {
-                        "id": f"https://w3id.org/xapi/dod-isd/verbs/{row['Verb']}"
-                    },
-                    "actor": {
-                        "mbox": f"mailto:{row['Actor']}@open.ac.uk"
-                    },
-                    "object": {
-                        "id": f"http://open.ac.uk/{row['Object']}"
-                    }
+                    "id": str(uuid.uuid4()),
+                    "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+                    "verb": {"id": f"https://w3id.org/xapi/dod-isd/verbs/{row['Verb']}"},
+                    "actor": {"mbox": f"mailto:{row['Actor']}@open.ac.uk"},
+                    "object": {"id": f"http://open.ac.uk/{row['Object']}"}
                 }
-                self.generated_data.append(entry)  # Ajouter l'entrée formatée
-
+                self.generated_data.append(entry)
         self.data_generated = True
         self.show_message(f"{num_records} données générées avec succès.")
-        self.save_button.setVisible(True)
 
-        # Émettre le signal pour passer à la page "Save"
-        self.data_generated_signal.emit()
 
     def save_generated_data(self):
         if not self.data_generated:
