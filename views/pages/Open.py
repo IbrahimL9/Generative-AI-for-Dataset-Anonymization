@@ -11,13 +11,11 @@ class Open(QWidget):
 
     def __init__(self, download_button):
         super().__init__()
-        # Utiliser l'instance partagée passée en paramètre
         self.download_button = download_button
         self.json_data = None
 
         self.initUI()
 
-        # Créer un timer qui vérifie périodiquement si un fichier a été téléchargé.
         self.checkTimer = QTimer(self)
         self.checkTimer.timeout.connect(self.updateViewButtonState)
         self.checkTimer.start(500)
@@ -44,7 +42,6 @@ class Open(QWidget):
         layout.addLayout(button_layout)
         layout.addStretch(2)
 
-        # (Ici, on n'affiche plus la zone des statistiques dans Open)
         self.setLayout(layout)
 
     def updateViewButtonState(self):
@@ -53,6 +50,5 @@ class Open(QWidget):
             self.json_data = self.download_button.json_data  # Assurez-vous que json_data est défini
             self.checkTimer.stop()
             self.checkTimer.stop()
-            self.fileDownloaded.emit()  # Signaler que le fichier est téléchargé
-        # Sinon, rien n'est fait
+            self.fileDownloaded.emit()
 

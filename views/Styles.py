@@ -85,15 +85,11 @@ QLineEdit:focus {
 
 # styles.py
 
-# Styles pour les messages
+# Simplified styles for messages
 SUCCESS_MESSAGE_STYLE = """
     QLabel {
-        background-color: #4CAF50;  /* Vert */
-        color: white;
-        padding: 15px;
+        color: green;
         font-size: 16px;
-        border-radius: 10px;
-        border: 2px solid #388E3C;
         font-family: 'Arial', sans-serif;
         text-align: center;
     }
@@ -101,12 +97,8 @@ SUCCESS_MESSAGE_STYLE = """
 
 ERROR_MESSAGE_STYLE = """
     QLabel {
-        background-color: #f44336;
-        color: white;
-        padding: 15px;
+        color: red;
         font-size: 16px;
-        border-radius: 10px;
-        border: 2px solid #D32F2F;
         font-family: 'Arial', sans-serif;
         text-align: center;
     }
@@ -114,12 +106,8 @@ ERROR_MESSAGE_STYLE = """
 
 WARNING_MESSAGE_STYLE = """
     QLabel {
-        background-color: #FF9800;  /* Orange */
-        color: white;
-        padding: 15px;
+        color: black;
         font-size: 16px;
-        border-radius: 10px;
-        border: 2px solid #F57C00;
         font-family: 'Arial', sans-serif;
         text-align: center;
     }
@@ -127,12 +115,8 @@ WARNING_MESSAGE_STYLE = """
 
 INFO_MESSAGE_STYLE = """
     QLabel {
-        background-color: #2196F3;  /* Bleu */
-        color: white;
-        padding: 15px;
+        color: black;
         font-size: 16px;
-        border-radius: 10px;
-        border: 2px solid #1976D2;
         font-family: 'Arial', sans-serif;
         text-align: center;
     }

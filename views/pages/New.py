@@ -9,7 +9,6 @@ import joblib
 
 from views.Styles import BUTTON_STYLE2, BUTTON_STYLE3
 
-
 class New(QWidget):
     model_loaded = pyqtSignal(object)
 
@@ -23,17 +22,17 @@ class New(QWidget):
         main_layout = QVBoxLayout()
         main_layout.addSpacing(30)
 
-        # Titre positionné en haut
+        # Title positioned at the top
         title = QLabel("New Model")
         title.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(title, alignment=Qt.AlignmentFlag.AlignTop)
 
         main_layout.addSpacing(5)
-        # Layout des boutons
+        # Button layout
         button_layout = QHBoxLayout()
 
-        # BOUTON "New Model"
+        # "New Model" BUTTON
         self.new_model_button = QPushButton("New Model")
         self.new_model_button.setStyleSheet(BUTTON_STYLE2)
         self.new_model_button.setFixedSize(200, 150)
@@ -42,7 +41,7 @@ class New(QWidget):
         self.new_model_button.clicked.connect(self.toggle_model_selection)
         button_layout.addWidget(self.new_model_button)
 
-        # BOUTON "Load Model"
+        # "Load Model" BUTTON
         self.load_model_button = QPushButton("Load Model")
         self.load_model_button.setStyleSheet(BUTTON_STYLE2)
         self.load_model_button.setFixedSize(200, 150)
@@ -51,7 +50,7 @@ class New(QWidget):
         self.load_model_button.clicked.connect(self.load_model)
         button_layout.addWidget(self.load_model_button)
 
-        # BOUTON "Delete Model"
+        # "Delete Model" BUTTON
         self.delete_model_button = QPushButton("Delete Model")
         self.delete_model_button.setStyleSheet(BUTTON_STYLE2)
         self.delete_model_button.setFixedSize(200, 150)
@@ -62,7 +61,7 @@ class New(QWidget):
 
         main_layout.addLayout(button_layout)
 
-        # Sélection du modèle (cachée au départ)
+        # Model selection (hidden initially)
         self.model_selection_layout = QHBoxLayout()
         self.model_selection_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -82,7 +81,7 @@ class New(QWidget):
 
         main_layout.addSpacing(60)
 
-        # Bouton Continue
+        # Continue button
         self.continue_button = QPushButton("Continue")
         self.continue_button.setStyleSheet(BUTTON_STYLE3)
         self.continue_button.setFixedWidth(200)
@@ -90,7 +89,7 @@ class New(QWidget):
 
         main_layout.addSpacing(70)
 
-        # Barre de progression
+        # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.progress_bar.setMaximum(100)
@@ -106,15 +105,15 @@ class New(QWidget):
 
     def new_model(self):
         selected_model = self.model_combo.currentText()
-        print("Nouveau modèle sélectionné :", selected_model)
-        self.show_message(f"Nouveau modèle '{selected_model}' créé.")
+        print("New model selected:", selected_model)
+        self.show_message(f"New model '{selected_model}' created.")
 
     def load_model(self):
         anonymization_app = self.parent().parent()
         open_page = anonymization_app.get_open_page()
 
         if not open_page.json_data:
-            self.show_message("Erreur : Veuillez d'abord charger le fichier JSON dans la page Open.")
+            self.show_message("Error: Please first load the JSON file in the Open page.")
             return
 
         file_path, _ = QFileDialog.getOpenFileName(self, "Load Model", "", "Pickle Files (*.pkl)")
@@ -130,26 +129,26 @@ class New(QWidget):
                 self.progress_bar.setValue(100)
                 self.progress_bar.setVisible(False)
 
-                print("Modèle chargé depuis le fichier :", file_path)
-                self.show_message(f"Modèle chargé avec succès depuis {file_path}")
+                print("Model loaded from file:", file_path)
+                self.show_message(f"Model successfully loaded from {file_path}")
 
                 self.model_loaded.emit(self.model)
-                print("Signal de modèle chargé émis.")
+                print("Model loaded signal emitted.")
 
-                # Correction du problème joblib
+                # Fix for joblib issue
                 joblib.parallel_backend('loky', n_jobs=1)
             except Exception as e:
                 self.progress_bar.setVisible(False)
-                self.show_message(f"Erreur lors du chargement du modèle.\nDétails : {str(e)}")
+                self.show_message(f"Error loading the model.\nDetails: {str(e)}")
 
     def delete_model(self):
-        """Supprime le modèle actuellement chargé."""
+        """Deletes the currently loaded model."""
         if self.model:
             self.model = None
-            self.show_message("Modèle supprimé avec succès.")
-            print("Modèle supprimé.")
+            self.show_message("Model successfully deleted.")
+            print("Model deleted.")
         else:
-            self.show_message("Aucun modèle à supprimer.")
+            self.show_message("No model to delete.")
 
     def show_message(self, message):
         dialog = QDialog(self)

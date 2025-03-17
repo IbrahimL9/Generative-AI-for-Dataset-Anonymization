@@ -31,7 +31,7 @@ class AnonymizationApp(QWidget):
         self.menu = Menu()
         main_layout.addWidget(self.menu)
 
-        # Ajout du bouton de téléchargement
+        # Add the download button
         self.download_button = DownloadButton('Download File')
         self.download_button.file_loaded.connect(self.enableMenu)
 
@@ -40,7 +40,7 @@ class AnonymizationApp(QWidget):
 
         self.tools = Tools()
 
-        # Définir les pages
+        # Define the pages
         self.pages = {
             "open": Open(self.download_button),
             "display": Display(self.download_button),
@@ -53,11 +53,11 @@ class AnonymizationApp(QWidget):
             "save": Save(self)
         }
 
-        # Ajouter les pages au QStackedWidget
+        # Add pages to QStackedWidget
         for page in self.pages.values():
             self.stacked_widget.addWidget(page)
 
-        # Connexion des signaux et des slots
+        # Connect signals and slots
         self.menu.page_changed.connect(self.changePage)
         self.stacked_widget.setCurrentIndex(0)
         self.setLayout(main_layout)
@@ -65,7 +65,7 @@ class AnonymizationApp(QWidget):
         self.connect_signals()
 
     def connect_signals(self):
-        # Connexion des signaux entre les pages
+        # Connect signals between pages
         self.pages["new"].model_loaded.connect(self.pages["build"].on_model_loaded)
         self.pages["new"].model_loaded.connect(self.pages["generate"].on_model_loaded)
         self.pages["open"].fileLoaded.connect(self.pages["generate"].on_file_loaded)
@@ -73,7 +73,7 @@ class AnonymizationApp(QWidget):
         self.pages["generate"].data_generated_signal.connect(self.pages["analysis"].on_data_generated)
 
     def centerWindow(self):
-        """Centre la fenêtre principale."""
+        """Center the main window."""
         screen_geometry = QApplication.primaryScreen().availableGeometry()
         window_width, window_height = 1000, 700
         x = (screen_geometry.width() - window_width) // 2
@@ -81,31 +81,26 @@ class AnonymizationApp(QWidget):
         self.setGeometry(x, y, window_width, window_height)
 
     def enableMenu(self):
-        """Activer le menu lorsque le fichier est chargé."""
+        """Enable the menu when the file is loaded."""
         print("Menu enabled")
         self.menu.setEnabled(True)
 
     def changePage(self, index):
-        """Changer de page avec vérification du fichier téléchargé."""
-        # Vérification pour les pages Open, Display, Inspect reste inchangée
+        # Check for Open, Display, Inspect pages remains unchanged
         if index in [1, 2] and (
                 not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None):
-            QMessageBox.warning(
-                self,
-                "Fichier non téléchargé",
-                "Veuillez télécharger un fichier avant d'accéder à cette page."
-            )
+            QMessageBox.warning(self,"File Not Downloaded", "Please download a file before accessing this page.")
             return
 
         self.stacked_widget.setCurrentIndex(index)
 
     def resetMenuSelection(self, index):
-        """Réinitialiser la sélection du menu lorsque la page change."""
+        """Reset the menu selection when the page changes."""
         self.menu.blockSignals(True)
         self.menu.setCurrentRow(index)
         self.menu.blockSignals(False)
         self.stacked_widget.setCurrentIndex(index)
 
     def get_open_page(self):
-        """Retourne la page Open."""
+        """Return the Open page."""
         return self.pages["open"]

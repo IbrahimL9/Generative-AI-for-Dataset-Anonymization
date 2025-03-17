@@ -96,12 +96,8 @@ class Save(QWidget):
         dialog.exec()
 
     def save_data(self):
-        if not self.data_generated:
-            QMessageBox.warning(self, "Erreur", "Aucune donnée à sauvegarder.")
-            return
-
         file_dialog = QFileDialog()
-        file_name, _ = file_dialog.getSaveFileName(self, "Enregistrer les données", "", "JSON Files (*.json)")
+        file_name, _ = file_dialog.getSaveFileName(self, "Save Data", "", "JSON Files (*.json)")
 
         if file_name:
             generated_data = self.main_app.pages["generate"].generated_data
@@ -109,7 +105,7 @@ class Save(QWidget):
             if generated_data:
                 with open(file_name, "w", encoding="utf-8") as file:
                     json.dump(generated_data, file, ensure_ascii=False, indent=4)
-                self.show_message("Données sauvegardées avec succès !", message_type="success")
+                self.show_message("Data successfully saved!", message_type="success")
 
     def show_message(self, message, message_type="info"):
         dialog = QDialog(self)

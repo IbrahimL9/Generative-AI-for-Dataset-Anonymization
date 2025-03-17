@@ -142,7 +142,6 @@ class Display(QWidget):
         super().showEvent(event)
 
     def extract_name(self, value):
-        """ Extrait uniquement le nom utile d'un lien ou d'une adresse email """
         if "mailto:" in value:
             return value.replace("mailto:", "")
         elif value.startswith("http"):
@@ -150,21 +149,17 @@ class Display(QWidget):
         return value
 
     def updateTable(self):
-        """ Met à jour le tableau avec les données JSON fusionnées """
         if hasattr(self.download_button, 'json_data') and self.download_button.json_data is not None:
-            # Si le premier élément est lui-même une liste, on itère sur des batches
             if isinstance(self.download_button.json_data, list) and len(
                     self.download_button.json_data) > 0 and isinstance(self.download_button.json_data[0], list):
                 all_events = []
                 for batch in self.download_button.json_data:
                     all_events.extend(batch)
             else:
-                # Sinon, c'est déjà une liste d'événements
                 all_events = self.download_button.json_data
 
             self.afficher_tableau(all_events)
 
-            # Mise à jour des filtres
             verbs = list(set(self.extract_name(event["verb"]["id"]) for event in all_events if "verb" in event))
             self.verb_combobox.clear()
             self.verb_combobox.addItems(verbs)
@@ -182,7 +177,6 @@ class Display(QWidget):
         self.actor_combobox.setVisible(checked)
 
     def appliquer_filtre(self):
-        """ Applique les filtres sélectionnés """
         if hasattr(self.download_button, 'json_data') and self.download_button.json_data is not None:
             all_events = []
             for batch in self.download_button.json_data:
@@ -205,7 +199,6 @@ class Display(QWidget):
             self.afficher_tableau(filtered_events)
 
     def afficher_tableau(self, events):
-        """ Affiche les données dans le tableau """
         self.table.setRowCount(len(events))
         for row, event in enumerate(events):
             self.table.setItem(row, 0, QTableWidgetItem(event.get("timestamp", "")))
