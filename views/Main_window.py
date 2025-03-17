@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QStackedWidget, QApplication, QMessageBox
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt
 from .Menu import Menu
 from views.pages.Open import Open
 from views.pages.Display import Display
@@ -31,6 +31,7 @@ class AnonymizationApp(QWidget):
         self.menu = Menu()
         main_layout.addWidget(self.menu)
 
+        # Ajout du bouton de téléchargement
         self.download_button = DownloadButton('Download File')
         self.download_button.file_loaded.connect(self.enableMenu)
 
@@ -39,6 +40,7 @@ class AnonymizationApp(QWidget):
 
         self.tools = Tools()
 
+        # Définir les pages
         self.pages = {
             "open": Open(self.download_button),
             "display": Display(self.download_button),
@@ -47,13 +49,15 @@ class AnonymizationApp(QWidget):
             "build": Build(self, self.download_button, self.tools),
             "tools": self.tools,
             "generate": Generate(self),
-            "analysis": Analysis(),
+            "analysis": Analysis(self),
             "save": Save(self)
         }
 
+        # Ajouter les pages au QStackedWidget
         for page in self.pages.values():
             self.stacked_widget.addWidget(page)
 
+        # Connexion des signaux et des slots
         self.menu.page_changed.connect(self.changePage)
         self.stacked_widget.setCurrentIndex(0)
         self.setLayout(main_layout)
@@ -61,10 +65,12 @@ class AnonymizationApp(QWidget):
         self.connect_signals()
 
     def connect_signals(self):
+        # Connexion des signaux entre les pages
         self.pages["new"].model_loaded.connect(self.pages["build"].on_model_loaded)
         self.pages["new"].model_loaded.connect(self.pages["generate"].on_model_loaded)
         self.pages["open"].fileLoaded.connect(self.pages["generate"].on_file_loaded)
-        self.pages["generate"].data_generated_signal.connect(self.pages["save"].on_data_generated)  # Connecter le signal ici
+        self.pages["generate"].data_generated_signal.connect(self.pages["save"].on_data_generated)
+        self.pages["generate"].data_generated_signal.connect(self.pages["analysis"].on_data_generated)
 
     def centerWindow(self):
         """Centre la fenêtre principale."""
@@ -75,10 +81,12 @@ class AnonymizationApp(QWidget):
         self.setGeometry(x, y, window_width, window_height)
 
     def enableMenu(self):
+        """Activer le menu lorsque le fichier est chargé."""
         print("Menu enabled")
         self.menu.setEnabled(True)
 
     def changePage(self, index):
+        """Changer de page avec vérification du fichier téléchargé."""
         # Vérification pour les pages Open, Display, Inspect reste inchangée
         if index in [1, 2] and (
                 not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None):
@@ -92,12 +100,12 @@ class AnonymizationApp(QWidget):
         self.stacked_widget.setCurrentIndex(index)
 
     def resetMenuSelection(self, index):
+        """Réinitialiser la sélection du menu lorsque la page change."""
         self.menu.blockSignals(True)
         self.menu.setCurrentRow(index)
         self.menu.blockSignals(False)
         self.stacked_widget.setCurrentIndex(index)
 
     def get_open_page(self):
+        """Retourne la page Open."""
         return self.pages["open"]
-
-#
