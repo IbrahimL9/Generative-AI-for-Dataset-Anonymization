@@ -12,8 +12,6 @@ import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import pairwise_distances, mean_squared_error
 from sklearn.ensemble import RandomForestClassifier
-from sdv.metadata import Metadata
-from sdv.single_table import CTGANSynthesizer
 
 class Analysis(QWidget):
     def __init__(self, main_app):
@@ -25,20 +23,24 @@ class Analysis(QWidget):
 
     def initUI(self):
         layout = QVBoxLayout()
+        layout.addSpacing(30)
+
         title = QLabel("Analysis")
         title.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
-        self.cramers_v_button = QPushButton("Calculer V de Cramer")
+        layout.addSpacing(50)
+
+        self.cramers_v_button = QPushButton("Calculate Cramer's V")
         self.cramers_v_button.clicked.connect(self.calculate_cramers_v)
         layout.addWidget(self.cramers_v_button)
 
-        self.dcr_button = QPushButton("Calculer DCR")
+        self.dcr_button = QPushButton("Calculate DCR")
         self.dcr_button.clicked.connect(self.calculate_dcr)
         layout.addWidget(self.dcr_button)
 
-        self.pmse_button = QPushButton("Calculer pMSE")
+        self.pmse_button = QPushButton("Calculate pMSE")
         self.pmse_button.clicked.connect(self.calculate_pmse)
         layout.addWidget(self.pmse_button)
 
@@ -49,23 +51,26 @@ class Analysis(QWidget):
         self.setLayout(layout)
 
     def on_data_generated(self):
+        """Called when the 'generate' page has finished generating
+        or loading synthetic data."""
         self.synthetic_data = self.main_app.pages["generate"].generated_data
         self.original_data = self.main_app.pages["open"].json_data
 
         self.original_data = self.ensure_dataframe(self.original_data)
         self.synthetic_data = self.ensure_dataframe(self.synthetic_data)
 
-        # Mettre les noms des colonnes en minuscules pour correspondre aux données
+        # Set column names to lowercase to match data
         self.original_data.columns = self.original_data.columns.str.lower()
         self.synthetic_data.columns = self.synthetic_data.columns.str.lower()
 
-        print("Colonnes dans original_data:", self.original_data.columns)
-        print("Colonnes dans synthetic_data:", self.synthetic_data.columns)
+        print("Columns in original_data:", self.original_data.columns)
+        print("Columns in synthetic_data:", self.synthetic_data.columns)
 
         if self.original_data.empty or self.synthetic_data.empty:
-            self.results_text.appendPlainText("Erreur : Données non disponibles ou incorrectes.")
+            self.results_text.appendPlainText("Error: Data not available or incorrect.")
 
     def ensure_dataframe(self, data):
+        """Converts your data to DataFrame if necessary."""
         if isinstance(data, pd.DataFrame):
             return data
         elif isinstance(data, dict):
@@ -75,8 +80,9 @@ class Analysis(QWidget):
         return pd.DataFrame()
 
     def calculate_cramers_v(self):
+        """Calculates and displays Cramer's V for categorical columns."""
         def cramers_v(x, y):
-            # Convertir les valeurs en chaînes de caractères pour éviter les erreurs
+            # Convert values to strings to avoid errors
             x = x.astype(str)
             y = y.astype(str)
 
@@ -94,7 +100,7 @@ class Analysis(QWidget):
         synthetic_data = self.synthetic_data
 
         if df.empty or synthetic_data.empty:
-            self.results_text.appendPlainText("Erreur : Données non disponibles.")
+            self.results_text.appendPlainText("Error: Data not available.")
             return
 
         categorical_columns = ['actor', 'verb', 'object']
@@ -103,23 +109,25 @@ class Analysis(QWidget):
             if column in df.columns and column in synthetic_data.columns:
                 v_cramer_value = cramers_v(df[column], synthetic_data[column])
                 results[column] = v_cramer_value
-                self.results_text.appendPlainText(f"V de Cramer pour {column}: {v_cramer_value:.4f}")
+                self.results_text.appendPlainText(f"Cramer's V for {column}: {v_cramer_value:.4f}")
             else:
-                self.results_text.appendPlainText(f"Colonne '{column}' manquante dans les données.")
+                self.results_text.appendPlainText(f"Column '{column}' missing in data.")
 
+        # Display the plot only if there are results
         if results:
             self.plot_cramers_v(results)
 
     def plot_cramers_v(self, results):
+        """Displays a bar plot of Cramer's V values."""
         columns = list(results.keys())
         cramer_values = list(results.values())
 
         plt.figure(figsize=(10, 6))
-        bars = plt.bar(columns, cramer_values, color=['blue', 'orange', 'green'])
-        plt.axhline(y=0.1, color='r', linestyle='--', label='Seuil souhaité')
-        plt.title('Valeurs du V de Cramer')
+        bars = plt.bar(columns, cramer_values)
+        plt.axhline(y=0.1, color='r', linestyle='--', label='Desired Threshold')
+        plt.title('Cramer\'s V Values')
         plt.xlabel('Variables')
-        plt.ylabel('Valeur du V de Cramer')
+        plt.ylabel('Cramer\'s V Value')
         plt.ylim(0, max(cramer_values) + 0.05)
 
         for bar in bars:
@@ -134,118 +142,90 @@ class Analysis(QWidget):
         synthetic_data = self.synthetic_data
 
         if df.empty or synthetic_data.empty:
-            self.results_text.appendPlainText("Erreur : Données non disponibles.")
+            self.results_text.appendPlainText("Error: Data not available.")
             return
 
-        # Aligner les colonnes entre les données originales et synthétiques
+        # 1) Align columns between original and synthetic data
         common_columns = list(set(df.columns).intersection(synthetic_data.columns))
         df = df[common_columns]
         synthetic_data = synthetic_data[common_columns]
 
-        train_df, holdout_df = train_test_split(df, test_size=0.5)
+        # 2) Split real data into train/holdout (e.g., 50/50)
+        train_df, holdout_df = train_test_split(df, test_size=0.5, random_state=42)
 
-        # Convertir les dictionnaires en chaînes de caractères
+        # 3) Convert to string if some columns are of type dict or object
         train_df = train_df.apply(lambda x: x.map(str) if x.dtype == 'object' else x)
+        holdout_df = holdout_df.apply(lambda x: x.map(str) if x.dtype == 'object' else x)
         synthetic_data = synthetic_data.apply(lambda x: x.map(str) if x.dtype == 'object' else x)
 
-        # Création correcte des métadonnées
-        metadata = Metadata()
+        # 4) One-hot encode
+        train_encoded = pd.get_dummies(train_df)
+        holdout_encoded = pd.get_dummies(holdout_df)
+        synthetic_encoded = pd.get_dummies(synthetic_data)
 
-        try:
-            # Définir explicitement les métadonnées avec la syntaxe correcte
-            metadata.add_table(
-                name='data',  # Nom de la table
-                fields={
-                    'id': {'type': 'id'},  # Définir 'id' comme type 'id'
-                    'timestamp': {'type': 'datetime'},  # Définir 'timestamp' comme 'datetime'
-                    'verb': {'type': 'string'},  # 'verb' comme type 'string'
-                    'actor': {'type': 'string'},  # 'actor' comme type 'string'
-                    'object': {'type': 'string'}  # 'object' comme type 'string'
-                }
-            )
+        # 5) Align columns after one-hot encoding
+        common_encoded_cols = list(
+            set(train_encoded.columns)
+            .intersection(holdout_encoded.columns)
+            .intersection(synthetic_encoded.columns)
+        )
 
-            # Afficher les colonnes détectées dans les métadonnées
-            detected_columns = metadata.tables['data'].columns.keys()
-            self.results_text.appendPlainText(f"Colonnes détectées dans les métadonnées: {detected_columns}")
+        train_encoded = train_encoded[common_encoded_cols]
+        holdout_encoded = holdout_encoded[common_encoded_cols]
+        synthetic_encoded = synthetic_encoded[common_encoded_cols]
 
-            # Initialisation du modèle CTGAN avec les métadonnées
-            ctgan = CTGANSynthesizer(metadata, epochs=200)
-            ctgan.fit(train_df)
-            synthetic_train = ctgan.sample(len(df))
+        # 6) Utility function to calculate distances
+        def get_min_hamming_distances(synth, reference):
+            distances = pairwise_distances(synth, reference, metric='hamming')
+            min_distances = distances.min(axis=1)
+            return min_distances
 
-            # Encodage des données pour la comparaison
-            train_encoded = pd.get_dummies(train_df)
-            holdout_encoded = pd.get_dummies(holdout_df)
-            synthetic_encoded = pd.get_dummies(synthetic_train)
+        # 7) Calculate DCR with respect to train and holdout
+        dcr_train = get_min_hamming_distances(synthetic_encoded, train_encoded).mean()
+        dcr_holdout = get_min_hamming_distances(synthetic_encoded, holdout_encoded).mean()
 
-            # Aligner les colonnes entre train_encoded, holdout_encoded, et synthetic_encoded
-            common_columns = set(train_encoded.columns) & set(holdout_encoded.columns) & set(synthetic_encoded.columns)
-            train_encoded = train_encoded[list(common_columns)]
-            holdout_encoded = holdout_encoded[list(common_columns)]
-            synthetic_encoded = synthetic_encoded[list(common_columns)]
-
-            # Vérification si les colonnes sont bien alignées
-            print("Colonnes de train_encoded:", train_encoded.columns)
-            print("Colonnes de holdout_encoded:", holdout_encoded.columns)
-            print("Colonnes de synthetic_encoded:", synthetic_encoded.columns)
-
-            def calculate_dcr(synthetic, reference):
-                distances = pairwise_distances(synthetic, reference, metric='hamming')
-                min_distances = distances.min(axis=1)
-                return min_distances
-
-            # Calculer le DCR
-            dcr_train = calculate_dcr(synthetic_encoded, train_encoded)
-            dcr_holdout = calculate_dcr(synthetic_encoded, holdout_encoded)
-
-            self.results_text.appendPlainText(f"DCR Train: {dcr_train.mean()}")
-            self.results_text.appendPlainText(f"DCR Holdout: {dcr_holdout.mean()}")
-
-        except Exception as e:
-            self.results_text.appendPlainText(f"Erreur lors du calcul du DCR : {str(e)}")
+        self.results_text.appendPlainText(f"DCR Train: {dcr_train:.4f}")
+        self.results_text.appendPlainText(f"DCR Holdout: {dcr_holdout:.4f}")
 
     def calculate_pmse(self):
         df = self.original_data
         synthetic_data = self.synthetic_data
 
         if df.empty or synthetic_data.empty:
-            self.results_text.appendPlainText("Erreur : Données non disponibles.")
+            self.results_text.appendPlainText("Error: Data not available.")
             return
 
-        # Combine les données originales et synthétiques, ajout d'une colonne 'origin'
-        combined_df = pd.concat([df.assign(origin=0), synthetic_data.assign(origin=1)])
+        # 1) Combine original (origin=0) and synthetic (origin=1) data
+        combined_df = pd.concat([
+            df.assign(origin=0),
+            synthetic_data.assign(origin=1)
+        ], ignore_index=True)
 
-        # Convertir toutes les colonnes non hashables (comme dict) en chaînes de caractères
+        # 2) Convert all potentially 'dict' or 'object' columns to string
         for column in combined_df.columns:
-            if combined_df[column].apply(lambda x: isinstance(x, dict)).any():
-                # Convertir les dictionnaires en chaînes de caractères
-                combined_df[column] = combined_df[column].apply(lambda x: str(x) if isinstance(x, dict) else x)
+            combined_df[column] = combined_df[column].apply(lambda x: str(x) if isinstance(x, dict) else x)
+            # Can also force .astype(str) if necessary, but here it's sufficient
 
-        # Création des variables dummies (one-hot encoding)
+        # 3) One-hot encoding
         try:
             X = pd.get_dummies(combined_df.drop('origin', axis=1))
             y = combined_df['origin']
 
-            # Séparer en données d'entraînement et de test
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, stratify=y)
+            # 4) Split train/test (50/50), stratified on y
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.5, stratify=y, random_state=42
+            )
 
-            # Entraînement du modèle RandomForestClassifier
-            classifier = RandomForestClassifier()
+            # 5) Train RandomForest to distinguish origin=0 vs origin=1
+            classifier = RandomForestClassifier(random_state=42)
             classifier.fit(X_train, y_train)
 
-            # Prédictions de probabilité
+            # 6) Predict probabilities on X_test
             y_pred_prob = classifier.predict_proba(X_test)[:, 1]
 
-            # Calcul du pMSE
+            # 7) Calculate pMSE
             pmse_value = mean_squared_error(y_test, y_pred_prob)
             self.results_text.appendPlainText(f"pMSE: {pmse_value:.4f}")
 
         except Exception as e:
-            self.results_text.appendPlainText(f"Erreur lors du calcul du pMSE : {str(e)}")
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = Analysis(None)
-    window.show()
-    # Utiliser QTimer pour éviter de bloquer la boucle d'événements
-    QTimer.singleShot(0, app.exec)
+            self.results_text.appendPlainText(f"Error calculating pMSE: {str(e)}")

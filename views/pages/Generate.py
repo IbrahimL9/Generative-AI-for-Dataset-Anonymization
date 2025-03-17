@@ -13,7 +13,7 @@ from views.Styles import BUTTON_STYLE, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYL
     INFO_MESSAGE_STYLE, BUTTON_STYLE2
 
 class Generate(QWidget):
-    data_generated_signal = pyqtSignal()  # Signal pour notifier que les données ont été générées
+    data_generated_signal = pyqtSignal()  # Signal to notify that data has been generated
 
     def __init__(self, main_app):
         super().__init__()
@@ -30,21 +30,21 @@ class Generate(QWidget):
         main_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         main_layout.addSpacing(20)
 
-        # Titre centré
+        # Centered title
         title = QLabel("Generate")
         title.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(title)
         main_layout.addSpacing(100)
 
-        # Création du formulaire
+        # Form creation
         form_layout = QFormLayout()
         form_layout.setSpacing(10)
-        # Label pour le formulaire
+        # Form label
         txt = QLabel("Number of Data to Generate:")
         txt.setFont(QFont("Montserrat", 14))
         txt.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # Champ de saisie
+        # Input field
         self.records_input = QLineEdit("1000")
         self.records_input.setFixedWidth(200)
         self.records_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -60,7 +60,7 @@ class Generate(QWidget):
         """)
         form_layout.addRow(txt, self.records_input)
 
-        # Encapsulation du form_layout dans un QHBoxLayout pour le centrer horizontalement
+        # Encapsulate form_layout in a QHBoxLayout to center it horizontally
         form_container = QHBoxLayout()
         form_container.addStretch(1)
         form_container.addLayout(form_layout)
@@ -69,7 +69,7 @@ class Generate(QWidget):
 
         main_layout.addSpacing(40)
 
-        # Bouton "Generate" centré
+        # Centered "Generate" button
         self.generate_button = QPushButton("Generate")
         self.generate_button.setStyleSheet(BUTTON_STYLE2)
         self.generate_button.setFixedSize(200, 150)
@@ -78,11 +78,13 @@ class Generate(QWidget):
         self.generate_button.clicked.connect(self.generate_data)
         main_layout.addWidget(self.generate_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # Barre de progression (invisible au départ)
+        main_layout.addSpacing(200)
+
+        # Progress bar (hidden initially)
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedWidth(300)
         self.progress_bar.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.progress_bar.setRange(0, 0)  # Mode indéterminé
+        self.progress_bar.setRange(0, 0)
         self.progress_bar.setVisible(False)
         main_layout.addWidget(self.progress_bar, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -104,13 +106,13 @@ class Generate(QWidget):
 
     def generate_data(self):
         if self.model is None or not self.model.fitted:
-            QMessageBox.warning(self, "Erreur", "Veuillez entraîner un modèle avant de générer des données.")
+            QMessageBox.warning(self, "Error", "Please train a model before generating data.")
             return
 
         try:
             num_records = int(self.records_input.text())
         except ValueError:
-            QMessageBox.warning(self, "Erreur", "Veuillez entrer un nombre valide.")
+            QMessageBox.warning(self, "Error", "Please enter a valid number.")
             return
 
         self.progress_bar.setVisible(True)
@@ -120,7 +122,7 @@ class Generate(QWidget):
         self.progress_bar.setVisible(False)
 
         if self.model:
-            df = self.model.sample(num_records)  # Génération des données sous forme de DataFrame
+            df = self.model.sample(num_records)  # Generate data as DataFrame
             self.generated_data = []
             for index, row in df.iterrows():
                 entry = {
@@ -132,20 +134,20 @@ class Generate(QWidget):
                 }
                 self.generated_data.append(entry)
         self.data_generated = True
-        self.data_generated_signal.emit()  # Émettre le signal lorsque les données sont générées
-        self.show_message(f"{num_records} données générées avec succès.")
+        self.data_generated_signal.emit()  # Emit signal when data is generated
+        self.show_message(f"{num_records} data records generated successfully.")
 
     def save_generated_data(self):
         if not self.data_generated:
-            QMessageBox.warning(self, "Erreur", "Aucune donnée à sauvegarder.")
+            QMessageBox.warning(self, "Error", "No data to save.")
             return
 
         file_dialog = QFileDialog()
-        file_name, _ = file_dialog.getSaveFileName(self, "Enregistrer les données", "", "JSON Files (*.json)")
+        file_name, _ = file_dialog.getSaveFileName(self, "Save Data", "", "JSON Files (*.json)")
 
         if file_name:
             with open(file_name, "w") as file:
-                json.dump(self.generated_data, file, indent=2)  # Sauvegarder les données générées
+                json.dump(self.generated_data, file, indent=2)  # Save generated data
 
     def show_message(self, message, message_type="info"):
         dialog = QDialog(self)
@@ -153,7 +155,7 @@ class Generate(QWidget):
         dialog_layout = QVBoxLayout(dialog)
         message_label = QLabel(message)
 
-        # Appliquer le style en fonction du type de message
+        # Apply style based on message type
         if message_type == "success":
             message_label.setStyleSheet(SUCCESS_MESSAGE_STYLE)
         elif message_type == "error":

@@ -1,4 +1,3 @@
-import sys
 import time
 import pandas as pd
 import pickle
@@ -22,20 +21,20 @@ class TrainingThread(QThread):
         self.model = model
         self.df = df
         self.progress_step = 0
-        self.total_steps = 50
+        self.total_steps = 200
 
     def run(self):
         for epoch in range(self.total_steps):
-            # Simuler un calcul pour l'entraînement (ou un appel réel à self.model.fit)
-            time.sleep(0.5)  # Simuler un délai pour l'entraînement
+            # Simulate a calculation for training (or a real call to self.model.fit)
+            time.sleep(0.5)
             self.update_progress(epoch)
             if epoch == self.total_steps - 1:
                 self.model.fit(self.df)
-                self.model.fitted = True  # Marquer le modèle comme entraîné
+                self.model.fitted = True  # Mark the model as trained
                 self.training_finished.emit(self.model)
 
     def update_progress(self, epoch):
-        # Limiter la fréquence des mises à jour à toutes les 10 étapes (par exemple)
+        # Limit the frequency of updates to every 10 steps (for example)
         if epoch % 10 == 0:
             progress_msg = f"Gen. (0.83) | Discrim. (0.04): {int((epoch + 1) / self.total_steps * 100)}% | {'█' * (epoch // 20)}{' ' * (10 - epoch // 20)} | {epoch + 1}/{self.total_steps}"
             self.progress_update.emit(progress_msg)
@@ -53,18 +52,18 @@ class Build(QWidget):
         layout = QVBoxLayout()
         layout.addSpacing(30)
 
-        # Titre centré
+        # Centered title
         title = QLabel("Build Model", self)
         title.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title, alignment=Qt.AlignmentFlag.AlignTop)
 
         layout.addSpacing(32)
-        # Layout pour les boutons
+        # Layout for buttons
         button_layout = QHBoxLayout()
         button_layout.setContentsMargins(0, 0, 0, 0)
 
-        # BOUTON "Train Model"
+        # "Train Model" BUTTON
         self.train_model_button = QPushButton("Train Model", self)
         self.train_model_button.setStyleSheet(BUTTON_STYLE2)
         self.train_model_button.setFixedSize(200, 150)
@@ -73,7 +72,7 @@ class Build(QWidget):
         self.train_model_button.clicked.connect(self.train_model)
         button_layout.addWidget(self.train_model_button)
 
-        # BOUTON "Save Model"
+        # "Save Model" BUTTON
         self.save_model_button = QPushButton("Save Model", self)
         self.save_model_button.setStyleSheet(BUTTON_STYLE2)
         self.save_model_button.setFixedSize(200, 150)
@@ -83,11 +82,11 @@ class Build(QWidget):
         self.save_model_button.clicked.connect(self.save_model)
         button_layout.addWidget(self.save_model_button)
 
-        # Ajouter le layout des boutons
+        # Add the button layout
         layout.addLayout(button_layout)
         layout.addSpacing(100)
 
-        # Zone de texte pour afficher les messages
+        # Text area to display messages
         self.output_edit = QPlainTextEdit(self)
         self.output_edit.setReadOnly(True)
         self.output_edit.setFrameStyle(0)
@@ -102,11 +101,11 @@ class Build(QWidget):
     def on_model_loaded(self, model):
         self.model = model
         self.save_model_button.setEnabled(True)
-        self.output_edit.setPlainText("✅ Modèle chargé avec succès !")
+        self.output_edit.setPlainText("✅ Model loaded successfully!")
 
     def train_model(self):
         if not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None:
-            self.show_message("Erreur : Aucune donnée chargée. Veuillez charger un fichier JSON via DownloadButton.")
+            self.show_message("Error: No data loaded. Please load a JSON file via DownloadButton.")
             return
 
         df = pd.DataFrame(self.download_button.json_data)
@@ -142,7 +141,7 @@ class Build(QWidget):
         self.training_thread.start()
 
     def update_output(self, text):
-        # Mettre à jour la sortie avec le texte de progression
+        # Update the output with progress text
         self.output_edit.setPlainText(text)
         self.output_edit.verticalScrollBar().setValue(self.output_edit.verticalScrollBar().maximum())
 
@@ -154,7 +153,6 @@ class Build(QWidget):
         if hasattr(self.main_app, "pages") and "generate" in self.main_app.pages:
             self.main_app.pages["generate"].on_model_loaded(self.model)
 
-        self.show_message("Modèle CTGAN entraîné avec succès.")
 
     def save_model(self):
         if self.model is not None:
@@ -162,10 +160,10 @@ class Build(QWidget):
             if file_path:
                 with open(file_path, 'wb') as f:
                     pickle.dump(self.model, f)
-                self.show_message(f"Modèle sauvegardé avec succès dans {file_path}")
+                self.show_message(f"Model successfully saved to {file_path}")
         else:
             self.show_message(
-                "Erreur : Aucun modèle disponible à sauvegarder. Veuillez charger ou entraîner un modèle d'abord.")
+                "Error: No model available to save. Please load or train a model first.")
 
     def show_message(self, message, message_type="info"):
         dialog = QDialog(self)
@@ -173,7 +171,7 @@ class Build(QWidget):
         dialog_layout = QVBoxLayout(dialog)
         message_label = QLabel(message)
 
-        # Appliquer le style en fonction du type de message
+        # Apply style based on message type
         if message_type == "success":
             message_label.setStyleSheet(SUCCESS_MESSAGE_STYLE)
         elif message_type == "error":
