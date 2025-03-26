@@ -12,8 +12,9 @@ from views.Styles import BUTTON_STYLE2, BUTTON_STYLE3
 class New(QWidget):
     model_loaded = pyqtSignal(object)
 
-    def __init__(self):
+    def __init__(self, main_app):
         super().__init__()
+        self.main_app = main_app
         self.model = None
         self.model_selection_visible = False
         self.initUI()
@@ -86,7 +87,7 @@ class New(QWidget):
         self.continue_button.setStyleSheet(BUTTON_STYLE3)
         self.continue_button.setFixedWidth(200)
         main_layout.addWidget(self.continue_button, alignment=Qt.AlignmentFlag.AlignCenter)
-
+        self.continue_button.clicked.connect(self.go_to_build_page)
         main_layout.addSpacing(70)
 
         # Progress bar
@@ -97,6 +98,11 @@ class New(QWidget):
         main_layout.addWidget(self.progress_bar, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.setLayout(main_layout)
+
+    def go_to_build_page(self):
+        """Change la page actuelle pour aller à la page Build"""
+        self.main_app.changePage(4)  
+      
 
     def toggle_model_selection(self):
         self.model_selection_visible = not self.model_selection_visible

@@ -45,7 +45,7 @@ class AnonymizationApp(QWidget):
             "open": Open(self.download_button),
             "display": Display(self.download_button),
             "inspect": Inspect(self.download_button),
-            "new": New(),
+            "new": New(self),
             "build": Build(self, self.download_button, self.tools),
             "tools": self.tools,
             "generate": Generate(self),
