@@ -1,12 +1,11 @@
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout, QGroupBox, QCheckBox, QComboBox,
-    QSpinBox, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView
+    QSpinBox, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox
 )
 from PyQt6.QtGui import QFont, QColor
 from PyQt6.QtCore import Qt
 import pandas as pd
 from datetime import datetime
-
 
 class Display(QWidget):
     def __init__(self, download_button):
@@ -165,38 +164,44 @@ class Display(QWidget):
             self.afficher_tableau(all_events)
 
             # Filtres
-            verbs = list(set(self.extract_name(e.get("verb", {}).get("id", "")) for e in all_events if "verb" in e))
+            verbs = list(set(self.extract_name(e.get("verb", {}).get("id", "")) for e in all_events if isinstance(e.get("verb"), dict)))
             self.verb_combobox.clear()
             self.verb_combobox.addItems(verbs)
 
-            actors = list(set(self.extract_name(e.get("actor", {}).get("mbox", "")) for e in all_events if "actor" in e))
+            actors = list(set(self.extract_name(e.get("actor", {}).get("mbox", "")) for e in all_events if isinstance(e.get("actor"), dict)))
             self.actor_combobox.clear()
             self.actor_combobox.addItems(actors)
         else:
             self.table.setRowCount(0)
 
     def appliquer_filtre(self):
-        if hasattr(self.download_button, 'json_data') and self.download_button.json_data is not None:
-            all_events = []
-            for batch in self.download_button.json_data:
-                all_events.extend(batch)
+        if not self.download_button.json_data:
+            QMessageBox.warning(self, "Error", "No data loaded.")
+            return
 
-            all_events = self.convert_to_duration(all_events)
-            filtered_events = all_events
+        selected_actor = self.actor_combobox.currentText() if self.actor_checkbox.isChecked() else ""
+        selected_verb = self.verb_combobox.currentText() if self.verb_checkbox.isChecked() else ""
+        max_events = self.number_input.value()
 
-            if self.verb_checkbox.isChecked():
-                selected_verb = self.verb_combobox.currentText()
-                filtered_events = [e for e in filtered_events if self.extract_name(e.get("verb", {}).get("id", "")) == selected_verb]
+        filtered_events = []
 
-            if self.actor_checkbox.isChecked():
-                selected_actor = self.actor_combobox.currentText()
-                filtered_events = [e for e in filtered_events if self.extract_name(e.get("actor", {}).get("mbox", "")) == selected_actor]
+        for e in self.download_button.json_data:
+            if isinstance(e, dict):
+                actor = e.get("actor", {})
+                actor_name = self.extract_name(actor.get("mbox", ""))
+                verb = e.get("verb", {})
+                verb_name = self.extract_name(verb.get("id", ""))
 
-            max_events = self.number_input.value()
-            if max_events != 0:
+                if (not selected_actor or selected_actor.strip().lower() == actor_name.strip().lower()) and \
+                   (not selected_verb or selected_verb.strip().lower() == verb_name.strip().lower()):
+                    filtered_events.append(e)
+
+        if filtered_events:
+            if max_events > 0:
                 filtered_events = filtered_events[:max_events]
-
             self.afficher_tableau(filtered_events)
+        else:
+            QMessageBox.warning(self, "No Events", "No events found for the selected actor and verb.")
 
     def afficher_tableau(self, events):
         self.table.setRowCount(len(events))
@@ -216,46 +221,39 @@ class Display(QWidget):
                         if item:
                             item.setBackground(QColor("#E5E9F2"))
             except Exception as e:
-                print(f"Erreur ligne {row} : {e}")
+                pass
 
     def convert_to_duration(self, events):
         try:
             df = pd.DataFrame(events)
 
-            # Corriger noms de colonnes si besoin
             if 'timestamp' not in df.columns:
                 if 'Timestamp' in df.columns:
                     df['timestamp'] = df['Timestamp']
                 else:
-                    print("❌ Aucun champ 'timestamp' ou 'Timestamp' trouvé.")
                     return events
 
             if 'actor' not in df.columns:
                 if 'Actor' in df.columns:
                     df['actor'] = df['Actor']
                 else:
-                    print("❌ Aucun champ 'actor' ou 'Actor' trouvé.")
                     return events
 
             df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
 
-            # Extraire les noms d'acteurs pour grouper correctement
             df['actor_name'] = df['actor'].apply(
                 lambda a: self.extract_name(a.get('mbox', '')) if isinstance(a, dict) else str(a)
             )
 
-            # Trier par acteur + timestamp et calculer la différence
             df = df.sort_values(by=['actor_name', 'timestamp'])
             df['Duration'] = df.groupby('actor_name')['timestamp'].diff().dt.total_seconds()
             df['Duration'] = df['Duration'].fillna(0)
 
-            # Réinjecter les durées dans les événements
             for i in range(len(df)):
                 if i < len(events):
                     events[i]['Duration'] = float(df.iloc[i]['Duration'])
 
-            return events
+        except Exception:
+            pass
 
-        except Exception as e:
-            print("Erreur dans convert_to_duration :", e)
-            return events
+        return events
