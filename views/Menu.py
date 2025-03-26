@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QFrame, QSizePolicy
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import Qt, pyqtSignal
 
+
 class Menu(QListWidget):
     page_changed = pyqtSignal(int)
 
@@ -47,6 +48,7 @@ class Menu(QListWidget):
                     border: none;
                 }
                 """)
+        # Mise à jour du mapping avec les nouvelles pages
         self.page_mapping = {
             "Open file": 0,
             "Display": 1,
@@ -56,7 +58,9 @@ class Menu(QListWidget):
             "Tools": 5,
             "Generate": 6,
             "Analysis": 7,
-            "Save":8,
+            "Candidate Quality": 10,
+            "Fidelity": 11,
+            "Save": 8,
             "About": 9
         }
         self.pages = [
@@ -67,18 +71,22 @@ class Menu(QListWidget):
         self.section_items = []
         self.sub_items = {}
 
+        # Liste qui contiendra les sous-sous-menus pour "Analysis"
+        self.analysis_submenu = []
+
         # Ajout des sections et sous-éléments
         for section, icon_path, sub_items in self.pages:
             section_item = QListWidgetItem(QIcon(icon_path), section)
             section_item.setFont(QFont("Montserrat", 13, QFont.Weight.Bold))
-            section_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+            section_item.setFlags(section_item.flags() | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
             self.section_items.append(section_item)
             self.addItem(section_item)
             self.sub_items[section] = []
             for sub_item in sub_items:
                 sub_item_widget = QListWidgetItem(f"    • {sub_item}")
                 sub_item_widget.setFont(QFont("Montserrat", 10))
-                sub_item_widget.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                sub_item_widget.setFlags(
+                    sub_item_widget.flags() | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
                 sub_item_widget.setHidden(True)
                 self.sub_items[section].append(sub_item_widget)
                 self.addItem(sub_item_widget)
@@ -87,7 +95,7 @@ class Menu(QListWidget):
         about_item = QListWidgetItem("About")
         about_item.setFont(QFont("Montserrat", 14, QFont.Weight.Bold))
         about_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        about_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        about_item.setFlags(about_item.flags() | Qt.ItemFlag.ItemIsEnabled)
         about_item.setForeground(Qt.GlobalColor.black)
         self.addItem(about_item)
 
@@ -104,15 +112,43 @@ class Menu(QListWidget):
 
     def on_page_changed(self, index):
         item = self.item(index)
+        # Récupérer le texte sans indentation ni puce
+        item_text = item.text().strip().replace("• ", "")
+
+        # Si un élément de sous-menu "Analysis" est déjà présent et que l'utilisateur sélectionne un autre item qui n'est pas ces sous-menus, on les retire.
+        if item_text not in ["Analysis", "Confidentiality", "Fidelity"]:
+            if self.analysis_submenu:
+                for sub in self.analysis_submenu:
+                    row = self.row(sub)
+                    self.takeItem(row)
+                self.analysis_submenu = []
+
+        # Si l'utilisateur sélectionne "Analysis", on insère les sous-sous-menus si non déjà présents.
+        if item_text == "Analysis":
+            if not self.analysis_submenu:
+                current_index = self.currentRow()
+                candidate_item = QListWidgetItem("              • Confidentiality")
+                candidate_item.setFont(QFont("Montserrat", 9))
+                candidate_item.setFlags(
+                    candidate_item.flags() | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                fidelity_item = QListWidgetItem("              • Fidelity")
+                fidelity_item.setFont(QFont("Montserrat", 9))
+                fidelity_item.setFlags(fidelity_item.flags() | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                # Insérer ces items juste après "Analysis"
+                self.insertItem(current_index + 1, candidate_item)
+                self.insertItem(current_index + 2, fidelity_item)
+                self.analysis_submenu.extend([candidate_item, fidelity_item])
+
+        # Si l'élément sélectionné fait partie du mapping, on émet le signal correspondant.
+        if item_text in self.page_mapping:
+            self.page_changed.emit(self.page_mapping[item_text])
+
+        # Gérer l'affichage des sous-menus de section (premier niveau)
         if item in self.section_items:
             section_name = item.text()
             for sec, sub_items in self.sub_items.items():
                 for sub_item in sub_items:
                     sub_item.setHidden(sec != section_name)
-        else:
-            text = item.text().strip().replace("• ", "")
-            if text in self.page_mapping:
-                self.page_changed.emit(self.page_mapping[text])
 
     def show_initial_submenu(self, section_name, sub_item_name):
         for sec, sub_items in self.sub_items.items():

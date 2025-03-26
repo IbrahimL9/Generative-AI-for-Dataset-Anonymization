@@ -127,12 +127,13 @@ class Generate(QWidget):
             for index, row in df.iterrows():
                 entry = {
                     "id": str(uuid.uuid4()),
-                    "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+                    "Duration": float(row["Duration"]),  # Utilise Duration générée par le modèle
                     "verb": {"id": f"https://w3id.org/xapi/dod-isd/verbs/{row['Verb']}"},
                     "actor": {"mbox": f"mailto:{row['Actor']}@open.ac.uk"},
                     "object": {"id": f"http://open.ac.uk/{row['Object']}"}
                 }
                 self.generated_data.append(entry)
+
         self.data_generated = True
         self.data_generated_signal.emit()  # Emit signal when data is generated
         self.show_message(f"{num_records} data records generated successfully.")
