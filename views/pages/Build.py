@@ -11,6 +11,9 @@ from views.Styles import BUTTON_STYLE, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYL
     INFO_MESSAGE_STYLE, BUTTON_STYLE2
 from sdv.single_table import CTGANSynthesizer
 from sdv.metadata import SingleTableMetadata
+import numpy as np
+
+
 
 class TrainingThread(QThread):
     progress_update = pyqtSignal(str)
@@ -25,12 +28,11 @@ class TrainingThread(QThread):
 
     def run(self):
         for epoch in range(self.total_steps):
-            # Simulate a calculation for training (or a real call to self.model.fit)
             time.sleep(0.5)
             self.update_progress(epoch)
             if epoch == self.total_steps - 1:
                 self.model.fit(self.df)
-                self.model.fitted = True  # Mark the model as trained
+                self.model.fitted = True
                 self.training_finished.emit(self.model)
 
     def update_progress(self, epoch):
@@ -184,20 +186,17 @@ class Build(QWidget):
         dialog_layout.addWidget(message_label)
         dialog.exec()
 
+
     def preprocess_data(self, df):
         df = simplify_df(df)
 
-        if 'Timestamp' not in df.columns and 'timestamp' in df.columns:
-            df.rename(columns={'timestamp': 'Timestamp'}, inplace=True)
+        # Générer des durées aléatoires entre 5 et 600 secondes
+        num_rows = len(df)
+        df['Duration'] = np.random.uniform(low=5, high=600, size=num_rows).round(2)
 
-        df['Timestamp'] = pd.to_datetime(df['Timestamp'], format="%Y-%m-%dT%H:%M:%S", errors='coerce')
-        df['Timestamp'] = df['Timestamp'].apply(lambda x: x.timestamp())
+        # Garder uniquement les colonnes nécessaires pour l'entraînement
+        return df[['Duration', 'Actor', 'Verb', 'Object']]
 
-        min_timestamp_seconds = df['Timestamp'].min()
-        df['Timestamp'] -= min_timestamp_seconds
-
-        df_sorted = df.sort_values(by='Timestamp').reset_index(drop=True)
-        return df_sorted[['Timestamp', 'Actor', 'Verb', 'Object']]
 
 def simplify_df(df):
     def simplify_value(x, key):

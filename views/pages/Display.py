@@ -4,6 +4,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QFont, QColor
 from PyQt6.QtCore import Qt
+import pandas as pd
+from datetime import datetime
 
 
 class Display(QWidget):
@@ -15,13 +17,13 @@ class Display(QWidget):
     def initUI(self):
         self.layout = QVBoxLayout(self)
 
-        # Titre de la page
+        # Titre
         title = QLabel("Display Generated Data")
         title.setFont(QFont("Montserrat", 18, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.layout.addWidget(title)
 
-        # Section des filtres
+        # Filtres
         self.filter_group = QGroupBox("🔍 Filters")
         self.filter_group.setStyleSheet("""
             QGroupBox {
@@ -37,7 +39,7 @@ class Display(QWidget):
         filter_layout = QHBoxLayout()
         self.filter_group.setLayout(filter_layout)
 
-        # Filtre par verbe
+        # Verbe
         verb_layout = QHBoxLayout()
         verb_label = QLabel("Verb:")
         self.verb_combobox = QComboBox()
@@ -45,12 +47,11 @@ class Display(QWidget):
         self.verb_combobox.setVisible(False)
         self.verb_checkbox = QCheckBox("Enable")
         self.verb_checkbox.stateChanged.connect(self.toggle_verb_combobox)
-
         verb_layout.addWidget(verb_label)
         verb_layout.addWidget(self.verb_combobox)
         verb_layout.addWidget(self.verb_checkbox)
 
-        # Filtre par acteur
+        # Acteur
         actor_layout = QHBoxLayout()
         actor_label = QLabel("Actor:")
         self.actor_combobox = QComboBox()
@@ -58,23 +59,21 @@ class Display(QWidget):
         self.actor_combobox.setVisible(False)
         self.actor_checkbox = QCheckBox("Enable")
         self.actor_checkbox.stateChanged.connect(self.toggle_actor_combobox)
-
         actor_layout.addWidget(actor_label)
         actor_layout.addWidget(self.actor_combobox)
         actor_layout.addWidget(self.actor_checkbox)
 
-        # Limite des événements
+        # Limite
         limit_layout = QHBoxLayout()
         limit_label = QLabel("Max Events:")
         self.number_input = QSpinBox()
         self.number_input.setMinimum(0)
-        self.number_input.setMaximum(1000)
+        self.number_input.setMaximum(10000)
         self.number_input.setValue(0)
-
         limit_layout.addWidget(limit_label)
         limit_layout.addWidget(self.number_input)
 
-        # Bouton de filtre
+        # Bouton appliquer
         self.filter_button = QPushButton("Apply Filter")
         self.filter_button.setStyleSheet("""
             QPushButton {
@@ -90,21 +89,18 @@ class Display(QWidget):
         """)
         self.filter_button.clicked.connect(self.appliquer_filtre)
 
-        # Ajout des éléments au layout des filtres
+        # Ajout au layout des filtres
         filter_layout.addLayout(verb_layout)
         filter_layout.addLayout(actor_layout)
         filter_layout.addLayout(limit_layout)
         filter_layout.addWidget(self.filter_button)
-
         self.layout.addWidget(self.filter_group)
 
         # Tableau
         self.table = QTableWidget()
         self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Timestamp", "Actor", "Verb", "Object"])
+        self.table.setHorizontalHeaderLabels(["Duration (s)", "Actor", "Verb", "Object"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-
-        # Appliquer un style CSS amélioré
         self.table.setStyleSheet("""
             QTableWidget {
                 background: #F1F3F8;
@@ -131,7 +127,6 @@ class Display(QWidget):
                 color: black;
             }
         """)
-
         self.table.setSortingEnabled(True)
         self.layout.addWidget(self.table)
 
@@ -142,33 +137,12 @@ class Display(QWidget):
         super().showEvent(event)
 
     def extract_name(self, value):
-        if "mailto:" in value:
-            return value.replace("mailto:", "")
-        elif value.startswith("http"):
-            return value.split("/")[-1]
-        return value
-
-    def updateTable(self):
-        if hasattr(self.download_button, 'json_data') and self.download_button.json_data is not None:
-            if isinstance(self.download_button.json_data, list) and len(
-                    self.download_button.json_data) > 0 and isinstance(self.download_button.json_data[0], list):
-                all_events = []
-                for batch in self.download_button.json_data:
-                    all_events.extend(batch)
-            else:
-                all_events = self.download_button.json_data
-
-            self.afficher_tableau(all_events)
-
-            verbs = list(set(self.extract_name(event["verb"]["id"]) for event in all_events if "verb" in event))
-            self.verb_combobox.clear()
-            self.verb_combobox.addItems(verbs)
-
-            actors = list(set(self.extract_name(event["actor"]["mbox"]) for event in all_events if "actor" in event))
-            self.actor_combobox.clear()
-            self.actor_combobox.addItems(actors)
-        else:
-            self.table.setRowCount(0)
+        if isinstance(value, str):
+            if "mailto:" in value:
+                return value.replace("mailto:", "")
+            elif value.startswith("http"):
+                return value.split("/")[-1]
+        return str(value)
 
     def toggle_verb_combobox(self, checked):
         self.verb_combobox.setVisible(checked)
@@ -176,21 +150,47 @@ class Display(QWidget):
     def toggle_actor_combobox(self, checked):
         self.actor_combobox.setVisible(checked)
 
+    def updateTable(self):
+        if hasattr(self.download_button, 'json_data') and self.download_button.json_data is not None:
+            raw_data = self.download_button.json_data
+
+            if isinstance(raw_data, list) and len(raw_data) > 0 and isinstance(raw_data[0], list):
+                all_events = []
+                for batch in raw_data:
+                    all_events.extend(batch)
+            else:
+                all_events = raw_data
+
+            all_events = self.convert_to_duration(all_events)
+            self.afficher_tableau(all_events)
+
+            # Filtres
+            verbs = list(set(self.extract_name(e.get("verb", {}).get("id", "")) for e in all_events if "verb" in e))
+            self.verb_combobox.clear()
+            self.verb_combobox.addItems(verbs)
+
+            actors = list(set(self.extract_name(e.get("actor", {}).get("mbox", "")) for e in all_events if "actor" in e))
+            self.actor_combobox.clear()
+            self.actor_combobox.addItems(actors)
+        else:
+            self.table.setRowCount(0)
+
     def appliquer_filtre(self):
         if hasattr(self.download_button, 'json_data') and self.download_button.json_data is not None:
             all_events = []
             for batch in self.download_button.json_data:
                 all_events.extend(batch)
 
+            all_events = self.convert_to_duration(all_events)
             filtered_events = all_events
 
             if self.verb_checkbox.isChecked():
                 selected_verb = self.verb_combobox.currentText()
-                filtered_events = [event for event in filtered_events if self.extract_name(event.get("verb", {}).get("id", "")) == selected_verb]
+                filtered_events = [e for e in filtered_events if self.extract_name(e.get("verb", {}).get("id", "")) == selected_verb]
 
             if self.actor_checkbox.isChecked():
                 selected_actor = self.actor_combobox.currentText()
-                filtered_events = [event for event in filtered_events if self.extract_name(event.get("actor", {}).get("mbox", "")) == selected_actor]
+                filtered_events = [e for e in filtered_events if self.extract_name(e.get("actor", {}).get("mbox", "")) == selected_actor]
 
             max_events = self.number_input.value()
             if max_events != 0:
@@ -201,11 +201,61 @@ class Display(QWidget):
     def afficher_tableau(self, events):
         self.table.setRowCount(len(events))
         for row, event in enumerate(events):
-            self.table.setItem(row, 0, QTableWidgetItem(event.get("timestamp", "")))
-            self.table.setItem(row, 1, QTableWidgetItem(self.extract_name(event.get("actor", {}).get("mbox", ""))))
-            self.table.setItem(row, 2, QTableWidgetItem(self.extract_name(event.get("verb", {}).get("id", ""))))
-            self.table.setItem(row, 3, QTableWidgetItem(self.extract_name(event.get("object", {}).get("id", ""))))
+            try:
+                duration = event.get("Duration", 0)
+                if isinstance(duration, (int, float)):
+                    duration = f"{duration:.2f}"
+                self.table.setItem(row, 0, QTableWidgetItem(str(duration)))
+                self.table.setItem(row, 1, QTableWidgetItem(self.extract_name(event.get("actor", {}).get("mbox", ""))))
+                self.table.setItem(row, 2, QTableWidgetItem(self.extract_name(event.get("verb", {}).get("id", ""))))
+                self.table.setItem(row, 3, QTableWidgetItem(self.extract_name(event.get("object", {}).get("id", ""))))
 
-            if row % 2 == 0:
-                for col in range(4):
-                    self.table.item(row, col).setBackground(QColor("#E5E9F2"))
+                if row % 2 == 0:
+                    for col in range(4):
+                        item = self.table.item(row, col)
+                        if item:
+                            item.setBackground(QColor("#E5E9F2"))
+            except Exception as e:
+                print(f"Erreur ligne {row} : {e}")
+
+    def convert_to_duration(self, events):
+        try:
+            df = pd.DataFrame(events)
+
+            # Corriger noms de colonnes si besoin
+            if 'timestamp' not in df.columns:
+                if 'Timestamp' in df.columns:
+                    df['timestamp'] = df['Timestamp']
+                else:
+                    print("❌ Aucun champ 'timestamp' ou 'Timestamp' trouvé.")
+                    return events
+
+            if 'actor' not in df.columns:
+                if 'Actor' in df.columns:
+                    df['actor'] = df['Actor']
+                else:
+                    print("❌ Aucun champ 'actor' ou 'Actor' trouvé.")
+                    return events
+
+            df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+
+            # Extraire les noms d'acteurs pour grouper correctement
+            df['actor_name'] = df['actor'].apply(
+                lambda a: self.extract_name(a.get('mbox', '')) if isinstance(a, dict) else str(a)
+            )
+
+            # Trier par acteur + timestamp et calculer la différence
+            df = df.sort_values(by=['actor_name', 'timestamp'])
+            df['Duration'] = df.groupby('actor_name')['timestamp'].diff().dt.total_seconds()
+            df['Duration'] = df['Duration'].fillna(0)
+
+            # Réinjecter les durées dans les événements
+            for i in range(len(df)):
+                if i < len(events):
+                    events[i]['Duration'] = float(df.iloc[i]['Duration'])
+
+            return events
+
+        except Exception as e:
+            print("Erreur dans convert_to_duration :", e)
+            return events

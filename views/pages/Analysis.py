@@ -118,7 +118,6 @@ class Analysis(QWidget):
             self.plot_cramers_v(results)
 
     def plot_cramers_v(self, results):
-        """Displays a bar plot of Cramer's V values."""
         columns = list(results.keys())
         cramer_values = list(results.values())
 
