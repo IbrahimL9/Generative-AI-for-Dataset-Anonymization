@@ -1,5 +1,6 @@
 import sys
 import uuid
+import time
 from datetime import datetime
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QFormLayout, QLineEdit, QPushButton,
@@ -124,10 +125,13 @@ class Generate(QWidget):
         if self.model:
             df = self.model.sample(num_records)  # Generate data as DataFrame
             self.generated_data = []
+            base_ts = int(time.time())
             for index, row in df.iterrows():
+                # Ajout d'un timestamp pour chaque enregistrement (avec incrémentation pour différencier)
                 entry = {
                     "id": str(uuid.uuid4()),
-                    "Duration": float(row["Duration"]),  # Utilise Duration générée par le modèle
+                    "timestamp": str(base_ts + index),
+                    "Duration": int(float(row["Duration"])),  # Convertir en entier pour supprimer les décimales
                     "verb": {"id": f"https://w3id.org/xapi/dod-isd/verbs/{row['Verb']}"},
                     "actor": {"mbox": f"mailto:{row['Actor']}@open.ac.uk"},
                     "object": {"id": f"http://open.ac.uk/{row['Object']}"}
