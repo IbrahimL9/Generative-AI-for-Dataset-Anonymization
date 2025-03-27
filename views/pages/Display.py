@@ -11,7 +11,7 @@ class Display(QWidget):
     def __init__(self, download_button, main_app):
         super().__init__()
         self.download_button = download_button
-        self.main_app = main_app  # Needed to store processed dataframe
+        self.main_app = main_app
         self.initUI()
 
     def initUI(self):
@@ -87,9 +87,10 @@ class Display(QWidget):
         filter_layout.addWidget(self.filter_button)
         self.layout.addWidget(self.filter_group)
 
+        # Ajout de la colonne "Timestamp" en début
         self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Duration (s)", "Actor", "Verb", "Object"])
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels(["Timestamp", "Duration (s)", "Actor", "Verb", "Object"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setStyleSheet("""
             QTableWidget {
@@ -137,10 +138,12 @@ class Display(QWidget):
             self.table.setRowCount(0)
             return
 
+        # Si data est une liste de listes, on l'aplatit
         events = sum(data, []) if isinstance(data[0], list) else data
         events = self.convert_to_duration(events)
 
-        self.main_app.processed_dataframe = pd.DataFrame(events)  # Store for reuse in Inspect
+        # Stockage dans processed_dataframe pour réutilisation ultérieure
+        self.main_app.processed_dataframe = pd.DataFrame(events)
 
         verbs = sorted(set(self.extract_name(e.get("verb", {}).get("id", "")) for e in events))
         self.verb_combobox.clear()
@@ -177,11 +180,25 @@ class Display(QWidget):
     def afficher_tableau(self, events):
         self.table.setRowCount(len(events))
         for row, event in enumerate(events):
+            # Extraction et conversion du timestamp en secondes depuis l'époque
+            ts_raw = event.get("timestamp", "")
+            try:
+                dt = pd.to_datetime(ts_raw)
+                ts_seconds = dt.timestamp()
+                ts_str = str(int(ts_seconds))  # Conversion en entier pour enlever le .0
+            except Exception:
+                ts_str = "N/A"
+
+            # Conversion de la duration en entier pour enlever les décimales
             duration = event.get("Duration", 0)
-            duration = f"{float(duration):.2f}" if isinstance(duration, (int, float)) else "0.00"
+            try:
+                duration_str = str(int(float(duration)))
+            except Exception:
+                duration_str = "0"
 
             items = [
-                QTableWidgetItem(duration),
+                QTableWidgetItem(ts_str),       # Colonne Timestamp
+                QTableWidgetItem(duration_str),   # Colonne Duration (s)
                 QTableWidgetItem(self.extract_name(event.get("actor", {}).get("mbox", ""))),
                 QTableWidgetItem(self.extract_name(event.get("verb", {}).get("id", ""))),
                 QTableWidgetItem(self.extract_name(event.get("object", {}).get("id", "")))
@@ -195,13 +212,11 @@ class Display(QWidget):
     def convert_to_duration(self, events):
         try:
             df = pd.DataFrame(events)
-
             if 'timestamp' not in df:
                 return events
 
             df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
             df['actor_name'] = df['actor'].apply(lambda a: self.extract_name(a.get('mbox', '')) if isinstance(a, dict) else str(a))
-
             df = df.sort_values(by=['actor_name', 'timestamp'])
             df['Duration'] = df.groupby('actor_name')['timestamp'].diff().dt.total_seconds().fillna(0)
 
@@ -209,5 +224,4 @@ class Display(QWidget):
                 events[i]['Duration'] = float(d)
         except Exception:
             pass
-
         return events

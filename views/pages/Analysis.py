@@ -12,13 +12,12 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 
 
 class Analysis(QWidget):
-    """
-    Compare le DataFrame original (main_app.processed_dataframe)
-    et les données générées (par Generate).
-    """
     def __init__(self, main_app):
         super().__init__()
         self.main_app = main_app
+        self.analysis_generated = False  # Flag indiquant si l'analyse a déjà été générée
+        self.html_file_path = "comparative_analysis.html"  # Chemin du fichier HTML
+        self.web_view = None  # Widget pour afficher le rapport HTML
         self.initUI()
 
     def initUI(self):
@@ -43,26 +42,20 @@ class Analysis(QWidget):
         self.setLayout(layout)
 
     def showEvent(self, event):
-        # À chaque fois que la page s'affiche, on relance l'analyse
-        self.runAnalysis()
+        # À l'affichage de la page, on vérifie si l'analyse a déjà été générée.
+        if not self.analysis_generated:
+            self.runAnalysis()
         super().showEvent(event)
 
     def runAnalysis(self):
-        """
-        Récupère le DataFrame "réel" + les données générées
-        et construit le rapport comparatif.
-        """
         self.clearLayout()
 
         df_original = getattr(self.main_app, "processed_dataframe", None)
         if df_original is None or df_original.empty:
-            # pas de DF original
             no_data_label = QLabel("No original DataFrame found. Please load a file in 'Display' first.")
             self.scroll_layout.addWidget(no_data_label)
             return
 
-        # Récupérer la liste "generated_data" depuis la page Generate
-        # Vous pouvez l’avoir stockée ailleurs, par ex. main_app.generated_data
         generate_page = self.main_app.pages.get("generate", None)
         if not generate_page or not generate_page.generated_data:
             no_gen_label = QLabel("No generated data found. Please generate data in 'Generate' first.")
@@ -71,44 +64,59 @@ class Analysis(QWidget):
 
         events_gen = generate_page.generated_data
 
-        # Convertir la liste de dict en DataFrame
-        # (vous pouvez adapter si votre structure est différente)
+        # Conversion de la liste de dictionnaires en DataFrame
         df_generated = pd.DataFrame(events_gen)
 
-        # --- Effectuer la même analyse pour "df_original" et "df_generated" ---
-        # On produit deux rapports, qu’on concatène en un seul HTML
+        # Génération des rapports HTML pour les données réelles et générées
         html_original = self.create_analysis_html(df_original, "ORIGINAL DATA")
         html_generated = self.create_analysis_html(df_generated, "GENERATED DATA")
 
-        # On fusionne le tout
-        final_html = html_original + "<hr>" + html_generated
+        # Fusionner les deux rapports dans un seul bloc HTML côte à côte avec Flexbox
+        final_html = f"""
+        <div style="display: flex; flex-direction: row; justify-content: space-around;">
+            <div style="flex: 1; margin: 10px;">{html_original}</div>
+            <div style="flex: 1; margin: 10px;">{html_generated}</div>
+        </div>
+        """
 
-        # On sauvegarde localement
-        html_file_path = "comparative_analysis.html"
-        with open(html_file_path, "w", encoding="utf-8") as f:
+        # Sauvegarde du rapport dans un fichier HTML local
+        with open(self.html_file_path, "w", encoding="utf-8") as f:
             f.write(final_html)
 
-        # On affiche via QWebEngineView
-        web_view = QWebEngineView()
-        web_view.setUrl(QUrl.fromLocalFile(os.path.abspath(html_file_path)))
-        self.scroll_layout.addWidget(web_view)
+        # Création ou rechargement du QWebEngineView
+        if self.web_view is None:
+            self.web_view = QWebEngineView()
+            self.scroll_layout.addWidget(self.web_view)
+        self.web_view.setUrl(QUrl.fromLocalFile(os.path.abspath(self.html_file_path)))
+        self.analysis_generated = True  # Marquer que l'analyse a été générée
 
     def create_analysis_html(self, df, dataset_title):
         """
-        Calcule les stats & graphiques pour un DataFrame donné (df),
-        et génère un HTML (sans le conteneur <html><body> complet).
+        Calcule les statistiques et génère des graphiques pour un DataFrame donné,
+        retourne un contenu HTML (sans balises <html>/<body> complètes).
         """
         if df.empty:
             return f"<h2>{dataset_title}</h2><p>No data</p>"
 
-        # Extraction des colonnes
+        # Extraction des noms depuis les colonnes 'verb', 'actor' et 'object'
         df['verb_name'] = df['verb'].apply(self.extract_verb) if 'verb' in df.columns else "Unknown"
         df['actor_name'] = df['actor'].apply(self.extract_actor) if 'actor' in df.columns else "Unknown"
         df['object_name'] = df['object'].apply(self.extract_object) if 'object' in df.columns else "Unknown"
 
-        # Timestamps
+        # Traitement des timestamps avec formatage explicite pour éviter l'avertissement
         if 'timestamp' in df.columns:
-            timestamps = pd.to_datetime(df['timestamp'], errors='coerce').dropna()
+            sample = df['timestamp'].iloc[0] if not df['timestamp'].empty else None
+            if sample is not None and isinstance(sample, str):
+                # Si le timestamp ressemble à "YYYY-MM-DD HH:MM:SS"
+                if "-" in sample or ":" in sample:
+                    timestamps = pd.to_datetime(df['timestamp'], format="%Y-%m-%d %H:%M:%S", errors='coerce').dropna()
+                # Sinon, si c'est un nombre en chaîne, on le convertit en numérique avant de le parser
+                elif sample.isdigit():
+                    timestamps = pd.to_datetime(pd.to_numeric(df['timestamp']), unit='s', errors='coerce').dropna()
+                else:
+                    timestamps = pd.to_datetime(df['timestamp'], errors='coerce').dropna()
+            else:
+                timestamps = pd.to_datetime(df['timestamp'], errors='coerce').dropna()
             if not timestamps.empty:
                 first_event = timestamps.min().strftime("%Y-%m-%d %H:%M:%S")
                 last_event = timestamps.max().strftime("%Y-%m-%d %H:%M:%S")
@@ -117,7 +125,7 @@ class Analysis(QWidget):
         else:
             first_event = last_event = "N/A"
 
-        # Stats
+        # Calcul des statistiques
         verb_counts = Counter(df['verb_name'])
         object_counts = dict(Counter(df['object_name']).most_common(6))
         actor_counts = Counter(df['actor_name'])
@@ -130,7 +138,7 @@ class Analysis(QWidget):
         else:
             avg_events = min_events = max_events = std_events = 0
 
-        # Moyenne des durées par verbe
+        # Calcul de la durée moyenne par verbe, si disponible
         if 'Duration' in df.columns:
             durations_per_verb = df.groupby('verb_name')['Duration'].apply(list)
             avg_duration_per_verb = {v: mean(d) for v, d in durations_per_verb.items() if d}
@@ -139,7 +147,6 @@ class Analysis(QWidget):
 
         # Création des figures Plotly
         fig_list = []
-
         title_prefix = f"[{dataset_title}] "
 
         fig_list.append(self.create_bar_chart(verb_counts, title_prefix + "Most Used Verbs"))
@@ -153,11 +160,10 @@ class Analysis(QWidget):
                 avg_duration_per_verb, title_prefix + "Average Duration per Verb", y_axis="Avg Duration (s)"
             ))
 
-        # Distribution des acteurs
         if actor_counts:
             fig_list.append(self.create_actor_pie_chart(actor_counts, title_prefix + "Actor Distribution"))
 
-        # Convertit toutes les figures en un unique bloc HTML
+        # Conversion de toutes les figures en HTML
         fig_html = "".join([pio.to_html(fig, full_html=False) for fig in fig_list])
         return f"<h2>{dataset_title}</h2>" + fig_html
 
@@ -188,61 +194,79 @@ class Analysis(QWidget):
             return oid.split("/")[-1]
         return oid
 
-    # --- Fonctions de création de graphiques Plotly ---
+    # --- Fonctions de création de graphiques Plotly avec couleurs ---
     def create_bar_chart(self, data, title, y_axis="Count"):
         labels = list(data.keys())
         values = [data[label] for label in labels]
+        # Palette de couleurs pour les barres
+        colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
         fig = px.bar(
             x=labels, y=values,
             labels={"x": "Category", "y": y_axis},
             title=title,
             width=800, height=400
         )
+        fig.update_traces(marker_color=colors[:len(labels)])
         fig.update_layout(showlegend=False)
         return fig
 
     def create_histogram(self, avg_value, min_value, max_value, title):
         labels = ["Average", "Min", "Max"]
         values = [avg_value, min_value, max_value]
+        # Palette pour l'histogramme (3 couleurs)
+        colors = ['#636EFA', '#EF553B', '#00CC96']
         fig = px.bar(
             x=labels, y=values,
             labels={"x": "Stats", "y": "Events per Actor"},
-            title=title, width=800, height=400
+            title=title,
+            width=800, height=400
         )
+        fig.update_traces(marker_color=colors[:len(labels)])
         fig.update_layout(showlegend=False)
         return fig
 
     def create_event_time_chart(self, first_event, last_event, title):
         labels = ["First Event", "Last Event"]
         values = [1, 1]
+        # Palette pour deux barres
+        colors = ['#636EFA', '#EF553B']
         fig = px.bar(
             x=labels, y=values,
             text=[first_event, last_event],
             labels={"x": "Event Type", "y": "Count"},
-            title=title, width=800, height=400
+            title=title,
+            width=800, height=400
         )
-        fig.update_traces(textposition="outside")
+        fig.update_traces(textposition="outside", marker_color=colors[:len(labels)])
         fig.update_layout(showlegend=False)
         return fig
 
     def create_statistics_bar_chart(self, avg_value, std_value, title):
         labels = ["Average", "Std Dev"]
         values = [avg_value, std_value]
+        # Palette pour deux barres
+        colors = ['#636EFA', '#EF553B']
         fig = px.bar(
             x=labels, y=values,
             labels={"x": "Stats", "y": "Value"},
-            title=title, width=800, height=400
+            title=title,
+            width=800, height=400
         )
+        fig.update_traces(marker_color=colors[:len(labels)])
         fig.update_layout(showlegend=False)
         return fig
 
     def create_actor_pie_chart(self, actor_counts, title):
         labels = list(actor_counts.keys())
         sizes = list(actor_counts.values())
+        # Palette pour le diagramme en camembert
+        colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
         fig = px.pie(
             names=labels,
             values=sizes,
-            title=title, width=800, height=400
+            title=title,
+            width=800, height=400,
+            color_discrete_sequence=colors
         )
         fig.update_layout(showlegend=False)
         return fig
@@ -250,19 +274,19 @@ class Analysis(QWidget):
     def create_object_pie_chart(self, object_counts, title):
         labels = list(object_counts.keys())
         sizes = list(object_counts.values())
+        # Palette pour le diagramme en camembert
+        colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
         fig = px.pie(
             names=labels,
             values=sizes,
-            title=title, width=800, height=400
+            title=title,
+            width=800, height=400,
+            color_discrete_sequence=colors
         )
         fig.update_layout(showlegend=False)
         return fig
 
     def clearLayout(self):
-        """
-        Supprime tous les widgets du layout scroll_layout,
-        pour pouvoir régénérer un nouveau rapport.
-        """
         for i in reversed(range(self.scroll_layout.count())):
             widget = self.scroll_layout.itemAt(i).widget()
             if widget:

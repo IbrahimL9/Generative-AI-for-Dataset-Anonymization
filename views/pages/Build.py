@@ -1,6 +1,7 @@
 import time
 import pandas as pd
 import pickle
+import numpy as np
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QDialog, QPlainTextEdit, QApplication, QSpacerItem,
     QSizePolicy, QHBoxLayout
@@ -11,8 +12,6 @@ from views.Styles import BUTTON_STYLE, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYL
     INFO_MESSAGE_STYLE, BUTTON_STYLE2
 from sdv.single_table import CTGANSynthesizer
 from sdv.metadata import SingleTableMetadata
-import numpy as np
-
 
 
 class TrainingThread(QThread):
@@ -40,6 +39,7 @@ class TrainingThread(QThread):
         if epoch % 10 == 0:
             progress_msg = f"Gen. (0.83) | Discrim. (0.04): {int((epoch + 1) / self.total_steps * 100)}% | {'█' * (epoch // 20)}{' ' * (10 - epoch // 20)} | {epoch + 1}/{self.total_steps}"
             self.progress_update.emit(progress_msg)
+
 
 class Build(QWidget):
     def __init__(self, main_app, download_button, tools, model=None):
@@ -155,7 +155,6 @@ class Build(QWidget):
         if hasattr(self.main_app, "pages") and "generate" in self.main_app.pages:
             self.main_app.pages["generate"].on_model_loaded(self.model)
 
-
     def save_model(self):
         if self.model is not None:
             file_path, _ = QFileDialog.getSaveFileName(self, "Save Model", "", "Pickle Files (*.pkl)")
@@ -164,8 +163,7 @@ class Build(QWidget):
                     pickle.dump(self.model, f)
                 self.show_message(f"Model successfully saved to {file_path}")
         else:
-            self.show_message(
-                "Error: No model available to save. Please load or train a model first.")
+            self.show_message("Error: No model available to save. Please load or train a model first.")
 
     def show_message(self, message, message_type="info"):
         dialog = QDialog(self)
@@ -186,16 +184,24 @@ class Build(QWidget):
         dialog_layout.addWidget(message_label)
         dialog.exec()
 
-
     def preprocess_data(self, df):
         df = simplify_df(df)
+
+        if 'timestamp' in df.columns:
+            df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+            df = df.sort_values(by='timestamp')
+            # Optionnel : formater le timestamp en chaîne de caractères (exemple : "YYYY-MM-DD HH:MM:SS")
+            df['timestamp'] = df['timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            # Si aucun timestamp n'est présent, en créer un avec la date actuelle
+            df['timestamp'] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # Générer des durées aléatoires entre 5 et 600 secondes
         num_rows = len(df)
         df['Duration'] = np.random.uniform(low=5, high=600, size=num_rows).round(2)
 
-        # Garder uniquement les colonnes nécessaires pour l'entraînement
-        return df[['Duration', 'Actor', 'Verb', 'Object']]
+        # Garder uniquement les colonnes nécessaires pour l'entraînement, y compris le timestamp
+        return df[['timestamp', 'Duration', 'Actor', 'Verb', 'Object']]
 
 
 def simplify_df(df):
