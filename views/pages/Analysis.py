@@ -82,20 +82,25 @@ class Analysis(QWidget):
     def calculate_cramers_v(self):
         """Calculates and displays Cramer's V for categorical columns."""
         def cramers_v(x, y):
-            # Convert values to strings to avoid errors
             x = x.astype(str)
             y = y.astype(str)
 
             confusion_matrix = pd.crosstab(x, y)
             chi2 = chi2_contingency(confusion_matrix)[0]
             n = confusion_matrix.sum().sum()
+
+            if n == 0:  # Éviter la division par zéro
+                return np.nan
+
             phi2 = chi2 / n
             r, k = confusion_matrix.shape
+
             phi2corr = max(0, phi2 - ((k - 1) * (r - 1)) / (n - 1))
             rcorr = r - ((r - 1) ** 2) / (n - 1)
             kcorr = k - ((k - 1) ** 2) / (n - 1)
-            return np.sqrt(phi2corr / min((kcorr - 1), (rcorr - 1)))
 
+            denominator = min((kcorr - 1), (rcorr - 1))
+            return np.sqrt(phi2corr / denominator) if denominator > 0 else np.nan
         df = self.original_data
         synthetic_data = self.synthetic_data
 
@@ -113,20 +118,30 @@ class Analysis(QWidget):
             else:
                 self.results_text.appendPlainText(f"Column '{column}' missing in data.")
 
+        if not any(np.isfinite(v) for v in results.values()):
+            self.results_text.appendPlainText("No valid Cramer's V values could be calculated.")
+            return
         # Display the plot only if there are results
         if results:
             self.plot_cramers_v(results)
 
     def plot_cramers_v(self, results):
-        columns = list(results.keys())
-        cramer_values = list(results.values())
+    # Filtrer les colonnes et les valeurs NaN ensemble
+        filtered_results = {col: v for col, v in results.items() if np.isfinite(v)}
+
+        if not filtered_results:  # Vérifier si on a encore des valeurs après filtrage
+            self.results_text.appendPlainText("No valid Cramer's V values to plot.")
+            return
+
+        columns = list(filtered_results.keys())
+        cramer_values = list(filtered_results.values())  # Maintenant, les tailles sont alignées
 
         plt.figure(figsize=(10, 6))
         bars = plt.bar(columns, cramer_values)
         plt.axhline(y=0.1, color='r', linestyle='--', label='Desired Threshold')
-        plt.title('Cramer\'s V Values')
-        plt.xlabel('Variables')
-        plt.ylabel('Cramer\'s V Value')
+        plt.title("Cramer's V Values")
+        plt.xlabel("Variables")
+        plt.ylabel("Cramer's V Value")
         plt.ylim(0, max(cramer_values) + 0.05)
 
         for bar in bars:
@@ -135,6 +150,8 @@ class Analysis(QWidget):
 
         plt.legend()
         plt.show()
+
+        
 
     def calculate_dcr(self):
         df = self.original_data
@@ -228,3 +245,4 @@ class Analysis(QWidget):
 
         except Exception as e:
             self.results_text.appendPlainText(f"Error calculating pMSE: {str(e)}")
+########## bien 
