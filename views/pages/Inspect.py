@@ -1,6 +1,7 @@
 from datetime import datetime
 from statistics import mean, stdev
 from collections import Counter
+import pandas as pd
 import plotly.express as px
 import plotly.io as pio
 from PyQt6.QtGui import QFont
@@ -9,304 +10,337 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QScrollArea
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 import os
 
+
 class Inspect(QWidget):
-    def __init__(self, download_button):
+    def __init__(self, download_button, main_app):
         super().__init__()
         self.download_button = download_button
+        self.main_app = main_app
         self.initUI()
+
+        # Facultatif : si on veut regénérer les stats
+        # à chaque fois que l'utilisateur charge un nouveau fichier :
         self.download_button.file_loaded.connect(self.updateStatistics)
 
     def initUI(self):
-        """Initialisation de l'interface utilisateur"""
-        self.layout = QVBoxLayout()
-        self.layout.addSpacing(20)
-        # Titre principal
+        layout = QVBoxLayout()
+        layout.addSpacing(20)
+
         title = QLabel("STATISTICS")
         title.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.layout.addWidget(title)
+        layout.addWidget(title)
 
+        self.scroll_widget = QWidget()
+        self.scroll_layout = QVBoxLayout(self.scroll_widget)
 
-        # Widget pour les graphiques
-        self.scroll_widget = QWidget()  # Créer un QWidget qui contiendra les graphiques
-        self.scroll_layout = QVBoxLayout(self.scroll_widget)  # Ajouter un QVBoxLayout à ce QWidget
-
-        # QScrollArea pour permettre le défilement si le contenu est trop grand
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidget(self.scroll_widget)
         self.scroll_area.setWidgetResizable(True)
-        self.layout.addWidget(self.scroll_area)
+        layout.addWidget(self.scroll_area)
 
-        # Redimensionner la fenêtre principale si nécessaire
         self.setWindowTitle("Statistics Viewer")
-        self.resize(1600, 2000)  # Taille de la fenêtre principale plus grande (1600x1000 pixels)
-
-        self.setLayout(self.layout)
-
-        self.updateStatistics()
-
-    def extract_name(self, value):
-        """Extrait uniquement le nom utile d'un lien ou d'une adresse email"""
-        if "mailto:" in value:
-            return value.replace("mailto:", "")
-        elif value.startswith("http"):
-            return value.split("/")[-1]
-        return value
+        self.resize(1600, 2000)
+        self.setLayout(layout)
 
     def updateStatistics(self):
-        """Mise à jour des statistiques et affichage des graphiques"""
-        if not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None:
-            print("Aucune donnée JSON chargée.")
+        """
+        1) Tente de lire le DataFrame dans main_app.processed_dataframe.
+        2) S’il n’existe pas ou est vide, on le crée via self.download_button.json_data.
+        3) Puis on génère les stats et les graphiques.
+        """
+        df = getattr(self.main_app, 'processed_dataframe', None)
+
+        # Si le DF n’existe pas ou est vide, on le construit
+        if df is None or df.empty:
+            # Récupère les données JSON
+            data = self.download_button.json_data
+            if not data:
+                print("❌ Aucune donnée JSON chargée. Veuillez charger un fichier.")
+                return
+
+            # Aplatir la liste si c'est une liste de listes
+            events = sum(data, []) if isinstance(data[0], list) else data
+
+            # On calcule la durée
+            events = self.convert_to_duration(events)
+
+            # On construit le DataFrame
+            df = pd.DataFrame(events)
+            # On le stocke dans main_app pour réutilisation ultérieure
+            self.main_app.processed_dataframe = df
+
+        if df.empty:
+            print("❌ Le DataFrame est vide (0 lignes).")
             return
 
-        # Fusionner toutes les listes imbriquées ou utiliser directement la liste d'événements
-        data = self.download_button.json_data
-        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
-            events = []
-            for batch in data:
-                events.extend(batch)
-        else:
-            events = data
-
-        print(f"Nombre total d'événements : {len(events)}")
-
-        if not events:
-            print("Aucun événement trouvé.")
-            return
-
-        # Nettoyer les graphiques précédents
+        # Nettoie l'affichage avant de recréer les widgets
         self.clearStatistics()
 
-        # Extraction des statistiques
-        timestamps = []
-        verbs = []
-        actors = []
-        objects = []
-        events_per_actor = Counter()
+        print(f"Nombre total d'événements : {len(df)}")
 
-        for event in events:
-            timestamp = event.get("timestamp", "")
-            verb = self.extract_name(event.get("verb", {}).get("id", "Unknown"))
-            actor = self.extract_name(event.get("actor", {}).get("mbox", "Unknown"))
-            obj = self.extract_name(event.get("object", {}).get("id", "Unknown"))
+        # --- Extraction des noms (verb_name, actor_name, object_name) ---
+        if 'verb' in df.columns:
+            df['verb_name'] = df['verb'].apply(
+                lambda v: self.extract_name(v.get('id', 'Unknown')) if isinstance(v, dict) else str(v)
+            )
+        else:
+            df['verb_name'] = "Unknown"
 
-            if timestamp:
-                try:
-                    timestamps.append(datetime.fromisoformat(timestamp))  # Convertir en datetime
-                except ValueError:
-                    print(f"Erreur de conversion de timestamp : {timestamp}")  # Gestion des erreurs de format
+        if 'actor' in df.columns:
+            df['actor_name'] = df['actor'].apply(
+                lambda a: self.extract_name(a.get('mbox', 'Unknown')) if isinstance(a, dict) else str(a)
+            )
+        else:
+            df['actor_name'] = "Unknown"
 
-            verbs.append(verb)
-            actors.append(actor)
-            objects.append(obj)
-            events_per_actor[actor] += 1
+        if 'object' in df.columns:
+            df['object_name'] = df['object'].apply(
+                lambda o: self.extract_name(o.get('id', 'Unknown')) if isinstance(o, dict) else str(o)
+            )
+        else:
+            df['object_name'] = "Unknown"
 
-        # Calcul des statistiques des timestamps
-        if timestamps:
-            # Trier les timestamps du plus ancien au plus récent
-            timestamps.sort()
-            first_event = timestamps[0].strftime("%Y-%m-%d %H:%M:%S")  # Première date
-            last_event = timestamps[-1].strftime("%Y-%m-%d %H:%M:%S")  # Dernière date
+        # --- Timestamps ---
+        timestamps = pd.to_datetime(df.get('timestamp'), errors='coerce').dropna()
+        if not timestamps.empty:
+            first_event = timestamps.min().strftime("%Y-%m-%d %H:%M:%S")
+            last_event = timestamps.max().strftime("%Y-%m-%d %H:%M:%S")
         else:
             first_event = last_event = "N/A"
 
-        verb_counts = Counter(verbs)
-        # Ne garder que les 6 objets les plus utilisés
-        object_counts = dict(Counter(objects).most_common(6))
-        avg_events = mean(events_per_actor.values()) if events_per_actor else 0
-        std_events = stdev(events_per_actor.values()) if len(events_per_actor) > 1 else 0
-        min_events = min(events_per_actor.values(), default=0)
-        max_events = max(events_per_actor.values(), default=0)
+        # --- Statistiques ---
+        verb_counts = Counter(df['verb_name'])
+        object_counts = dict(Counter(df['object_name']).most_common(6))
+        actor_counts = Counter(df['actor_name'])
 
-        # Créer un fichier HTML unique pour afficher tous les graphiques
+        if len(actor_counts) > 0:
+            avg_events = mean(actor_counts.values())
+            std_events = stdev(actor_counts.values()) if len(actor_counts) > 1 else 0
+            min_events = min(actor_counts.values())
+            max_events = max(actor_counts.values())
+        else:
+            avg_events = std_events = min_events = max_events = 0
+
+        # Durées par verbe
+        if 'Duration' in df.columns:
+            durations_per_verb = df.groupby('verb_name')['Duration'].apply(list)
+            avg_duration_per_verb = {v: mean(d) for v, d in durations_per_verb.items() if d}
+        else:
+            avg_duration_per_verb = {}
+
+        # Générer un rapport HTML
         self.create_html_report(
-            verb_counts, 
-            object_counts, 
+            verb_counts,
+            object_counts,
             first_event, last_event,
             avg_events, min_events, max_events,
             avg_events, std_events,
-            actor_counts=events_per_actor
+            actor_counts=actor_counts,
+            avg_duration_per_verb=avg_duration_per_verb
         )
-
-        # Charger et afficher le fichier HTML dans QWebEngineView
         self.display_html_report()
 
     def clearStatistics(self):
-        """Efface les graphiques précédents"""
         for i in reversed(range(self.scroll_layout.count())):
             widget = self.scroll_layout.itemAt(i).widget()
-            if widget is not None:
+            if widget:
                 widget.deleteLater()
 
-    def create_html_report(self, verb_counts, object_counts, first_event, last_event, 
-                           avg_events, min_events, max_events, avg_value, std_value, actor_counts=None):
-        """Génère un rapport HTML avec tous les graphiques"""
-        # Créer une liste pour stocker les figures
-        fig_list = []
+    def extract_name(self, value):
+        """Extrait un nom lisible depuis un mailto: ou une URL, sinon renvoie la valeur brute."""
+        if isinstance(value, str):
+            if value.startswith("mailto:"):
+                return value.replace("mailto:", "")
+            elif value.startswith("http"):
+                return value.split("/")[-1]
+        return str(value)
 
-        # Ajouter les graphiques à la liste
+    def convert_to_duration(self, events):
+        """
+        Identique à la logique de Display :
+         - Convertit en DataFrame
+         - Trie par (actor, timestamp)
+         - Calcule la différence de temps successif
+         - Réinjecte la Duration dans la liste events
+        """
+        if not events:
+            return events
+
+        df = pd.DataFrame(events)
+        if 'timestamp' not in df.columns:
+            return events
+
+        # Convertir la colonne 'timestamp'
+        df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+
+        # Extraire le nom d'acteur pour grouper
+        df['actor_name'] = df['actor'].apply(
+            lambda a: self.extract_name(a.get('mbox', '')) if isinstance(a, dict) else str(a)
+        )
+
+        # Tri par (actor_name, timestamp)
+        df = df.sort_values(by=['actor_name', 'timestamp'])
+
+        # Calcul de la durée
+        df['Duration'] = (
+            df.groupby('actor_name')['timestamp']
+                .diff()
+                .dt.total_seconds()
+                .fillna(0)
+        )
+
+        # On réinjecte la valeur dans la liste events
+        for idx, dur in zip(df.index, df['Duration']):
+            events[idx]['Duration'] = float(dur)
+
+        return events
+
+    # --- Génération du rapport HTML (Plotly) ---
+    def create_html_report(self, verb_counts, object_counts,
+                           first_event, last_event,
+                           avg_events, min_events, max_events,
+                           avg_value, std_value,
+                           actor_counts=None, avg_duration_per_verb=None):
+
+        fig_list = []
+        # Principaux graphiques
         fig_list.append(self.create_bar_chart(verb_counts, "Most Used Verbs"))
         fig_list.append(self.create_object_pie_chart(object_counts))
         fig_list.append(self.create_event_time_chart(first_event, last_event))
         fig_list.append(self.create_histogram(avg_events, min_events, max_events, "Events per Actor"))
         fig_list.append(self.create_statistics_bar_chart(avg_value, std_value))
-        
-        # Remplacer le graphique de verbes par celui des acteurs si fourni
+
+        # Durées par verbe
+        if avg_duration_per_verb:
+            fig_list.append(
+                self.create_bar_chart(avg_duration_per_verb, "Average Duration per Verb", y_axis="Avg Duration (s)"))
+
+        # Distribution des acteurs
         if actor_counts:
             fig_list.append(self.create_actor_pie_chart(actor_counts))
 
-        # Créer le contenu HTML pour les graphiques
-        html_content = ""
-
-        for fig in fig_list:
-            # Convertir chaque graphique en HTML
-            fig_html = pio.to_html(fig, full_html=False)
-            html_content += fig_html
-
-        # Sauvegarder le contenu HTML dans un fichier avec l'encodage UTF-8
+        # On assemble toutes les figures dans un seul fichier HTML
+        html_content = "".join([pio.to_html(fig, full_html=False) for fig in fig_list])
         html_file_path = "all_charts_report.html"
         with open(html_file_path, "w", encoding="utf-8") as f:
             f.write(html_content)
 
     def display_html_report(self):
-        """Affiche le rapport HTML dans un QWebEngineView"""
         web_view = QWebEngineView()
-        web_view.setUrl(QUrl.fromLocalFile(os.path.abspath("all_charts_report.html")))  # Charger le fichier HTML
-        self.scroll_layout.addWidget(web_view)  # Ajouter à la vue scrollable
+        web_view.setUrl(QUrl.fromLocalFile(os.path.abspath("all_charts_report.html")))
+        self.scroll_layout.addWidget(web_view)
 
-    def create_bar_chart(self, data, title):
-        """Crée un graphique en barres avec Plotly."""
+    # --- Fonctions de création de graphiques Plotly ---
+
+    def create_bar_chart(self, data, title, y_axis="Count"):
+        """Bar chart, avec une liste de couleurs attribuées aux barres."""
         labels = list(data.keys())
         values = [data[label] for label in labels]
 
-        # Définir des couleurs différentes pour chaque barre
-        colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32']  # Liste de couleurs
-
         fig = px.bar(
-            x=labels, y=values,
-            labels={"x": "Verbs", "y": "Count"},
+            x=labels,
+            y=values,
+            labels={"x": "Category", "y": y_axis},
             title=title,
-            width=1000,  # Largeur du graphique
-            height=500  # Hauteur du graphique
+            width=1000,
+            height=500
         )
-
-        # Appliquer les couleurs à chaque barre
-        fig.update_traces(marker_color=colors[:len(labels)])  # Limiter à la taille des barres
-
-        # Désactiver la légende
+        # Palette de couleurs
+        colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
+        # On assigne autant de couleurs qu’il y a d’éléments
+        fig.update_traces(marker_color=colors[:len(labels)])
         fig.update_layout(showlegend=False)
-
         return fig
 
     def create_histogram(self, avg_value, min_value, max_value, title):
-        """Crée un histogramme avec Plotly."""
+        """Histogramme (3 barres : Average, Min, Max)."""
         labels = ["Average", "Min", "Max"]
         values = [avg_value, min_value, max_value]
 
-        # Définir des couleurs différentes pour chaque barre
-        colors = ['#636EFA', '#EF553B', '#00CC96']  # Liste des couleurs personnalisées
-
         fig = px.bar(
-            x=labels, y=values,
+            x=labels,
+            y=values,
             labels={"x": "Stats", "y": "Events per Actor"},
             title=title,
-            width=1000,  # Largeur du graphique
-            height=500  # Hauteur du graphique
+            width=1000,
+            height=500
         )
-
-        # Appliquer les couleurs à chaque barre
-        fig.update_traces(marker_color=colors)
-
-        # Désactiver la légende
+        # Palette pour 3 barres
+        colors = ['#636EFA', '#EF553B', '#00CC96']
+        fig.update_traces(marker_color=colors[:len(labels)])
         fig.update_layout(showlegend=False)
-
         return fig
 
     def create_event_time_chart(self, first_event, last_event):
-        """Crée un graphique d'événements avec Plotly."""
+        """Bar chart avec 2 barres ('First Event', 'Last Event')."""
         labels = ["First Event", "Last Event"]
         values = [1, 1]
 
-        # Définir des couleurs différentes pour chaque barre
-        colors = ['#636EFA', '#EF553B']  # Liste de couleurs personnalisées
-
         fig = px.bar(
-            x=labels, y=values,
+            x=labels,
+            y=values,
             text=[first_event, last_event],
             labels={"x": "Event Type", "y": "Timestamp"},
             title="Event Timestamps",
-            width=1000,  # Largeur du graphique
-            height=500  # Hauteur du graphique
+            width=1000,
+            height=500
         )
-
-        # Appliquer les couleurs à chaque barre
-        fig.update_traces(marker_color=colors)
-
-        # Désactiver la légende
+        # Deux couleurs possibles
+        colors = ['#636EFA', '#EF553B']
+        fig.update_traces(marker_color=colors[:len(labels)], textposition="outside")
         fig.update_layout(showlegend=False)
-
         return fig
 
     def create_statistics_bar_chart(self, avg_value, std_value):
-        """Crée un graphique pour la moyenne et l'écart-type avec Plotly."""
+        """Deux barres : 'Average' et 'Std Dev'."""
         labels = ["Average", "Std Dev"]
         values = [avg_value, std_value]
 
-        # Définir des couleurs différentes pour chaque barre
-        colors = ['#636EFA', '#EF553B']  # Liste de couleurs personnalisées
-
         fig = px.bar(
-            x=labels, y=values,
+            x=labels,
+            y=values,
             labels={"x": "Stats", "y": "Value"},
             title="Average & Std Dev of Events per Actor",
-            width=1000,  # Largeur du graphique
-            height=500  # Hauteur du graphique
+            width=1000,
+            height=500
         )
-
-        # Appliquer les couleurs à chaque barre
-        fig.update_traces(marker_color=colors)
-
-        # Désactiver la légende
+        # Deux couleurs
+        colors = ['#636EFA', '#EF553B']
+        fig.update_traces(marker_color=colors[:len(labels)])
         fig.update_layout(showlegend=False)
-
         return fig
 
     def create_actor_pie_chart(self, actor_counts):
-        """Crée un graphique en camembert pour la distribution des acteurs avec Plotly."""
+        """Pie chart pour la distribution d'acteurs."""
         labels = list(actor_counts.keys())
         sizes = list(actor_counts.values())
 
-        # Définir des couleurs différentes pour chaque segment
-        colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32']  # Liste de couleurs
-
         fig = px.pie(
-            names=labels, values=sizes,
-            title="Actor Distribution",  # Nouveau titre pour les acteurs
-            width=1000,  # Largeur du graphique
-            height=500  # Hauteur du graphique
+            names=labels,
+            values=sizes,
+            title="Actor Distribution",
+            width=1000,
+            height=500
         )
-
-        # Appliquer les couleurs à chaque segment
-        fig.update_traces(marker_colors=colors[:len(labels)])  # Limiter à la taille des segments
-
+        # On applique des couleurs
+        colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
+        fig.update_traces(marker_colors=colors[:len(labels)])
         return fig
 
     def create_object_pie_chart(self, object_counts):
-        """Crée un graphique en camembert pour les objets avec Plotly."""
+        """Pie chart pour la distribution d'objets."""
         labels = list(object_counts.keys())
         sizes = list(object_counts.values())
 
-        # Définir des couleurs différentes pour chaque segment
-        colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32']  # Liste de couleurs
-
         fig = px.pie(
-            names=labels, values=sizes,
+            names=labels,
+            values=sizes,
             title="Object Distribution",
-            width=1000,  # Largeur du graphique
-            height=500  # Hauteur du graphique
+            width=1000,
+            height=500
         )
-
-        # Appliquer les couleurs à chaque segment
-        fig.update_traces(marker_colors=colors[:len(labels)])  # Limiter à la taille des segments
-
+        # On applique des couleurs
+        colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
+        fig.update_traces(marker_colors=colors[:len(labels)])
         return fig

@@ -180,5 +180,4 @@ class DownloadButton(QWidget):
                 "background-color: red; color: white; padding: 5px; border-radius: 3px;"
             )
         self.message_label.show()
-        # Cacher le message après 5 secondes (5000 ms)
         QTimer.singleShot(5000, self.message_label.hide)

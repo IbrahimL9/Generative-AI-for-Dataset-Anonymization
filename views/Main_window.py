@@ -13,6 +13,8 @@ from views.pages.Analysis import Analysis
 from views.pages.Save import Save
 from views.pages.Generate import Generate
 from views.Download_button import DownloadButton
+from views.pages.Fidelity import Fidelity
+from views.pages.Confidentiality import Confidentiality
 
 class AnonymizationApp(QWidget):
     def __init__(self):
@@ -43,14 +45,16 @@ class AnonymizationApp(QWidget):
         # Define the pages
         self.pages = {
             "open": Open(self.download_button),
-            "display": Display(self.download_button),
-            "inspect": Inspect(self.download_button),
+            "display": Display(self.download_button, self),
+            "inspect": Inspect(self.download_button,self),
             "new": New(self),
             "build": Build(self, self.download_button, self.tools),
             "tools": self.tools,
             "generate": Generate(self),
             "analysis": Analysis(self),
-            "save": Save(self)
+            "save": Save(self),
+            "fidelity": Fidelity(self),
+            "confidentiality": Confidentiality(self)
         }
 
         # Add pages to QStackedWidget
@@ -70,7 +74,7 @@ class AnonymizationApp(QWidget):
         self.pages["new"].model_loaded.connect(self.pages["generate"].on_model_loaded)
         self.pages["open"].fileLoaded.connect(self.pages["generate"].on_file_loaded)
         self.pages["generate"].data_generated_signal.connect(self.pages["save"].on_data_generated)
-        self.pages["generate"].data_generated_signal.connect(self.pages["analysis"].on_data_generated)
+        self.pages["generate"].data_generated_signal.connect(self.pages["confidentiality"].on_data_generated)
 
     def centerWindow(self):
         """Center the main window."""
@@ -85,14 +89,14 @@ class AnonymizationApp(QWidget):
         print("Menu enabled")
         self.menu.setEnabled(True)
 
-    def changePage(self, index):
-        # Check for Open, Display, Inspect pages remains unchanged
-        if index in [1, 2] and (
+    def changePage(self, page_key: str):
+        if page_key in ["display", "inspect"] and (
                 not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None):
-            QMessageBox.warning(self,"File Not Downloaded", "Please download a file before accessing this page.")
+            QMessageBox.warning(self, "File Not Downloaded", "Please download a file before accessing this page.")
             return
 
-        self.stacked_widget.setCurrentIndex(index)
+        page_index = list(self.pages.keys()).index(page_key)
+        self.stacked_widget.setCurrentIndex(page_index)
 
     def resetMenuSelection(self, index):
         """Reset the menu selection when the page changes."""
