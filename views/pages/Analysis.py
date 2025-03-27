@@ -1,248 +1,269 @@
-import sys
+import os
+from datetime import datetime
+from statistics import mean, stdev
+from collections import Counter
 import pandas as pd
-import numpy as np
-from PyQt6.QtWidgets import (
-    QWidget, QLabel, QVBoxLayout, QPushButton, QPlainTextEdit, QApplication
-)
+import plotly.express as px
+import plotly.io as pio
 from PyQt6.QtGui import QFont
-from PyQt6.QtCore import Qt, QTimer
-from scipy.stats import chi2_contingency
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import pairwise_distances, mean_squared_error
-from sklearn.ensemble import RandomForestClassifier
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QScrollArea
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+
 
 class Analysis(QWidget):
+    """
+    Compare le DataFrame original (main_app.processed_dataframe)
+    et les données générées (par Generate).
+    """
     def __init__(self, main_app):
         super().__init__()
         self.main_app = main_app
-        self.synthetic_data = pd.DataFrame()
-        self.original_data = pd.DataFrame()
         self.initUI()
 
     def initUI(self):
         layout = QVBoxLayout()
-        layout.addSpacing(30)
+        layout.addSpacing(20)
 
-        title = QLabel("Analysis")
+        title = QLabel("COMPARATIVE ANALYSIS")
         title.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
-        layout.addSpacing(50)
+        self.scroll_widget = QWidget()
+        self.scroll_layout = QVBoxLayout(self.scroll_widget)
 
-        self.cramers_v_button = QPushButton("Calculate Cramer's V")
-        self.cramers_v_button.clicked.connect(self.calculate_cramers_v)
-        layout.addWidget(self.cramers_v_button)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidget(self.scroll_widget)
+        self.scroll_area.setWidgetResizable(True)
+        layout.addWidget(self.scroll_area)
 
-        self.dcr_button = QPushButton("Calculate DCR")
-        self.dcr_button.clicked.connect(self.calculate_dcr)
-        layout.addWidget(self.dcr_button)
-
-        self.pmse_button = QPushButton("Calculate pMSE")
-        self.pmse_button.clicked.connect(self.calculate_pmse)
-        layout.addWidget(self.pmse_button)
-
-        self.results_text = QPlainTextEdit()
-        self.results_text.setReadOnly(True)
-        layout.addWidget(self.results_text)
-
+        self.setWindowTitle("Analysis - Real vs. Generated")
+        self.resize(1600, 2000)
         self.setLayout(layout)
 
-    def on_data_generated(self):
-        """Called when the 'generate' page has finished generating
-        or loading synthetic data."""
-        self.synthetic_data = self.main_app.pages["generate"].generated_data
-        self.original_data = self.main_app.pages["open"].json_data
+    def showEvent(self, event):
+        # À chaque fois que la page s'affiche, on relance l'analyse
+        self.runAnalysis()
+        super().showEvent(event)
 
-        self.original_data = self.ensure_dataframe(self.original_data)
-        self.synthetic_data = self.ensure_dataframe(self.synthetic_data)
+    def runAnalysis(self):
+        """
+        Récupère le DataFrame "réel" + les données générées
+        et construit le rapport comparatif.
+        """
+        self.clearLayout()
 
-        # Set column names to lowercase to match data
-        self.original_data.columns = self.original_data.columns.str.lower()
-        self.synthetic_data.columns = self.synthetic_data.columns.str.lower()
-
-        print("Columns in original_data:", self.original_data.columns)
-        print("Columns in synthetic_data:", self.synthetic_data.columns)
-
-        if self.original_data.empty or self.synthetic_data.empty:
-            self.results_text.appendPlainText("Error: Data not available or incorrect.")
-
-    def ensure_dataframe(self, data):
-        """Converts your data to DataFrame if necessary."""
-        if isinstance(data, pd.DataFrame):
-            return data
-        elif isinstance(data, dict):
-            return pd.DataFrame.from_dict(data)
-        elif isinstance(data, list):
-            return pd.DataFrame(data)
-        return pd.DataFrame()
-
-    def calculate_cramers_v(self):
-        """Calculates and displays Cramer's V for categorical columns."""
-        def cramers_v(x, y):
-            x = x.astype(str)
-            y = y.astype(str)
-
-            confusion_matrix = pd.crosstab(x, y)
-            chi2 = chi2_contingency(confusion_matrix)[0]
-            n = confusion_matrix.sum().sum()
-
-            if n == 0:  # Éviter la division par zéro
-                return np.nan
-
-            phi2 = chi2 / n
-            r, k = confusion_matrix.shape
-
-            phi2corr = max(0, phi2 - ((k - 1) * (r - 1)) / (n - 1))
-            rcorr = r - ((r - 1) ** 2) / (n - 1)
-            kcorr = k - ((k - 1) ** 2) / (n - 1)
-
-            denominator = min((kcorr - 1), (rcorr - 1))
-            return np.sqrt(phi2corr / denominator) if denominator > 0 else np.nan
-        df = self.original_data
-        synthetic_data = self.synthetic_data
-
-        if df.empty or synthetic_data.empty:
-            self.results_text.appendPlainText("Error: Data not available.")
+        df_original = getattr(self.main_app, "processed_dataframe", None)
+        if df_original is None or df_original.empty:
+            # pas de DF original
+            no_data_label = QLabel("No original DataFrame found. Please load a file in 'Display' first.")
+            self.scroll_layout.addWidget(no_data_label)
             return
 
-        categorical_columns = ['actor', 'verb', 'object']
-        results = {}
-        for column in categorical_columns:
-            if column in df.columns and column in synthetic_data.columns:
-                v_cramer_value = cramers_v(df[column], synthetic_data[column])
-                results[column] = v_cramer_value
-                self.results_text.appendPlainText(f"Cramer's V for {column}: {v_cramer_value:.4f}")
+        # Récupérer la liste "generated_data" depuis la page Generate
+        # Vous pouvez l’avoir stockée ailleurs, par ex. main_app.generated_data
+        generate_page = self.main_app.pages.get("generate", None)
+        if not generate_page or not generate_page.generated_data:
+            no_gen_label = QLabel("No generated data found. Please generate data in 'Generate' first.")
+            self.scroll_layout.addWidget(no_gen_label)
+            return
+
+        events_gen = generate_page.generated_data
+
+        # Convertir la liste de dict en DataFrame
+        # (vous pouvez adapter si votre structure est différente)
+        df_generated = pd.DataFrame(events_gen)
+
+        # --- Effectuer la même analyse pour "df_original" et "df_generated" ---
+        # On produit deux rapports, qu’on concatène en un seul HTML
+        html_original = self.create_analysis_html(df_original, "ORIGINAL DATA")
+        html_generated = self.create_analysis_html(df_generated, "GENERATED DATA")
+
+        # On fusionne le tout
+        final_html = html_original + "<hr>" + html_generated
+
+        # On sauvegarde localement
+        html_file_path = "comparative_analysis.html"
+        with open(html_file_path, "w", encoding="utf-8") as f:
+            f.write(final_html)
+
+        # On affiche via QWebEngineView
+        web_view = QWebEngineView()
+        web_view.setUrl(QUrl.fromLocalFile(os.path.abspath(html_file_path)))
+        self.scroll_layout.addWidget(web_view)
+
+    def create_analysis_html(self, df, dataset_title):
+        """
+        Calcule les stats & graphiques pour un DataFrame donné (df),
+        et génère un HTML (sans le conteneur <html><body> complet).
+        """
+        if df.empty:
+            return f"<h2>{dataset_title}</h2><p>No data</p>"
+
+        # Extraction des colonnes
+        df['verb_name'] = df['verb'].apply(self.extract_verb) if 'verb' in df.columns else "Unknown"
+        df['actor_name'] = df['actor'].apply(self.extract_actor) if 'actor' in df.columns else "Unknown"
+        df['object_name'] = df['object'].apply(self.extract_object) if 'object' in df.columns else "Unknown"
+
+        # Timestamps
+        if 'timestamp' in df.columns:
+            timestamps = pd.to_datetime(df['timestamp'], errors='coerce').dropna()
+            if not timestamps.empty:
+                first_event = timestamps.min().strftime("%Y-%m-%d %H:%M:%S")
+                last_event = timestamps.max().strftime("%Y-%m-%d %H:%M:%S")
             else:
-                self.results_text.appendPlainText(f"Column '{column}' missing in data.")
+                first_event = last_event = "N/A"
+        else:
+            first_event = last_event = "N/A"
 
-        if not any(np.isfinite(v) for v in results.values()):
-            self.results_text.appendPlainText("No valid Cramer's V values could be calculated.")
-            return
-        # Display the plot only if there are results
-        if results:
-            self.plot_cramers_v(results)
+        # Stats
+        verb_counts = Counter(df['verb_name'])
+        object_counts = dict(Counter(df['object_name']).most_common(6))
+        actor_counts = Counter(df['actor_name'])
 
-    def plot_cramers_v(self, results):
-    # Filtrer les colonnes et les valeurs NaN ensemble
-        filtered_results = {col: v for col, v in results.items() if np.isfinite(v)}
+        if len(actor_counts) > 0:
+            avg_events = mean(actor_counts.values())
+            min_events = min(actor_counts.values())
+            max_events = max(actor_counts.values())
+            std_events = stdev(actor_counts.values()) if len(actor_counts) > 1 else 0
+        else:
+            avg_events = min_events = max_events = std_events = 0
 
-        if not filtered_results:  # Vérifier si on a encore des valeurs après filtrage
-            self.results_text.appendPlainText("No valid Cramer's V values to plot.")
-            return
+        # Moyenne des durées par verbe
+        if 'Duration' in df.columns:
+            durations_per_verb = df.groupby('verb_name')['Duration'].apply(list)
+            avg_duration_per_verb = {v: mean(d) for v, d in durations_per_verb.items() if d}
+        else:
+            avg_duration_per_verb = {}
 
-        columns = list(filtered_results.keys())
-        cramer_values = list(filtered_results.values())  # Maintenant, les tailles sont alignées
+        # Création des figures Plotly
+        fig_list = []
 
-        plt.figure(figsize=(10, 6))
-        bars = plt.bar(columns, cramer_values)
-        plt.axhline(y=0.1, color='r', linestyle='--', label='Desired Threshold')
-        plt.title("Cramer's V Values")
-        plt.xlabel("Variables")
-        plt.ylabel("Cramer's V Value")
-        plt.ylim(0, max(cramer_values) + 0.05)
+        title_prefix = f"[{dataset_title}] "
 
-        for bar in bars:
-            yval = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width() / 2.0, yval, round(yval, 4), va='bottom')
+        fig_list.append(self.create_bar_chart(verb_counts, title_prefix + "Most Used Verbs"))
+        fig_list.append(self.create_object_pie_chart(object_counts, title_prefix + "Object Distribution"))
+        fig_list.append(self.create_event_time_chart(first_event, last_event, title_prefix + "Event Timestamps"))
+        fig_list.append(self.create_histogram(avg_events, min_events, max_events, title_prefix + "Events per Actor"))
+        fig_list.append(self.create_statistics_bar_chart(avg_events, std_events, title_prefix + "Avg & Std Dev"))
 
-        plt.legend()
-        plt.show()
+        if avg_duration_per_verb:
+            fig_list.append(self.create_bar_chart(
+                avg_duration_per_verb, title_prefix + "Average Duration per Verb", y_axis="Avg Duration (s)"
+            ))
 
-        
+        # Distribution des acteurs
+        if actor_counts:
+            fig_list.append(self.create_actor_pie_chart(actor_counts, title_prefix + "Actor Distribution"))
 
-    def calculate_dcr(self):
-        df = self.original_data
-        synthetic_data = self.synthetic_data
+        # Convertit toutes les figures en un unique bloc HTML
+        fig_html = "".join([pio.to_html(fig, full_html=False) for fig in fig_list])
+        return f"<h2>{dataset_title}</h2>" + fig_html
 
-        if df.empty or synthetic_data.empty:
-            self.results_text.appendPlainText("Error: Data not available.")
-            return
+    # --- Fonctions utilitaires d’extraction ---
+    def extract_verb(self, verb_dict):
+        if not isinstance(verb_dict, dict):
+            return "Unknown"
+        vid = verb_dict.get('id', '')
+        if vid.startswith("http"):
+            return vid.split("/")[-1]
+        return vid
 
-        # 1) Align columns between original and synthetic data
-        common_columns = list(set(df.columns).intersection(synthetic_data.columns))
-        df = df[common_columns]
-        synthetic_data = synthetic_data[common_columns]
+    def extract_actor(self, actor_dict):
+        if not isinstance(actor_dict, dict):
+            return "Unknown"
+        mbox = actor_dict.get('mbox', '')
+        if mbox.startswith("mailto:"):
+            return mbox.replace("mailto:", "")
+        elif mbox.startswith("http"):
+            return mbox.split("/")[-1]
+        return mbox
 
-        # 2) Split real data into train/holdout (e.g., 50/50)
-        train_df, holdout_df = train_test_split(df, test_size=0.5, random_state=42)
+    def extract_object(self, object_dict):
+        if not isinstance(object_dict, dict):
+            return "Unknown"
+        oid = object_dict.get('id', '')
+        if oid.startswith("http"):
+            return oid.split("/")[-1]
+        return oid
 
-        # 3) Convert to string if some columns are of type dict or object
-        train_df = train_df.apply(lambda x: x.map(str) if x.dtype == 'object' else x)
-        holdout_df = holdout_df.apply(lambda x: x.map(str) if x.dtype == 'object' else x)
-        synthetic_data = synthetic_data.apply(lambda x: x.map(str) if x.dtype == 'object' else x)
-
-        # 4) One-hot encode
-        train_encoded = pd.get_dummies(train_df)
-        holdout_encoded = pd.get_dummies(holdout_df)
-        synthetic_encoded = pd.get_dummies(synthetic_data)
-
-        # 5) Align columns after one-hot encoding
-        common_encoded_cols = list(
-            set(train_encoded.columns)
-            .intersection(holdout_encoded.columns)
-            .intersection(synthetic_encoded.columns)
+    # --- Fonctions de création de graphiques Plotly ---
+    def create_bar_chart(self, data, title, y_axis="Count"):
+        labels = list(data.keys())
+        values = [data[label] for label in labels]
+        fig = px.bar(
+            x=labels, y=values,
+            labels={"x": "Category", "y": y_axis},
+            title=title,
+            width=800, height=400
         )
+        fig.update_layout(showlegend=False)
+        return fig
 
-        train_encoded = train_encoded[common_encoded_cols]
-        holdout_encoded = holdout_encoded[common_encoded_cols]
-        synthetic_encoded = synthetic_encoded[common_encoded_cols]
+    def create_histogram(self, avg_value, min_value, max_value, title):
+        labels = ["Average", "Min", "Max"]
+        values = [avg_value, min_value, max_value]
+        fig = px.bar(
+            x=labels, y=values,
+            labels={"x": "Stats", "y": "Events per Actor"},
+            title=title, width=800, height=400
+        )
+        fig.update_layout(showlegend=False)
+        return fig
 
-        # 6) Utility function to calculate distances
-        def get_min_hamming_distances(synth, reference):
-            distances = pairwise_distances(synth, reference, metric='hamming')
-            min_distances = distances.min(axis=1)
-            return min_distances
+    def create_event_time_chart(self, first_event, last_event, title):
+        labels = ["First Event", "Last Event"]
+        values = [1, 1]
+        fig = px.bar(
+            x=labels, y=values,
+            text=[first_event, last_event],
+            labels={"x": "Event Type", "y": "Count"},
+            title=title, width=800, height=400
+        )
+        fig.update_traces(textposition="outside")
+        fig.update_layout(showlegend=False)
+        return fig
 
-        # 7) Calculate DCR with respect to train and holdout
-        dcr_train = get_min_hamming_distances(synthetic_encoded, train_encoded).mean()
-        dcr_holdout = get_min_hamming_distances(synthetic_encoded, holdout_encoded).mean()
+    def create_statistics_bar_chart(self, avg_value, std_value, title):
+        labels = ["Average", "Std Dev"]
+        values = [avg_value, std_value]
+        fig = px.bar(
+            x=labels, y=values,
+            labels={"x": "Stats", "y": "Value"},
+            title=title, width=800, height=400
+        )
+        fig.update_layout(showlegend=False)
+        return fig
 
-        self.results_text.appendPlainText(f"DCR Train: {dcr_train:.4f}")
-        self.results_text.appendPlainText(f"DCR Holdout: {dcr_holdout:.4f}")
+    def create_actor_pie_chart(self, actor_counts, title):
+        labels = list(actor_counts.keys())
+        sizes = list(actor_counts.values())
+        fig = px.pie(
+            names=labels,
+            values=sizes,
+            title=title, width=800, height=400
+        )
+        fig.update_layout(showlegend=False)
+        return fig
 
-    def calculate_pmse(self):
-        df = self.original_data
-        synthetic_data = self.synthetic_data
+    def create_object_pie_chart(self, object_counts, title):
+        labels = list(object_counts.keys())
+        sizes = list(object_counts.values())
+        fig = px.pie(
+            names=labels,
+            values=sizes,
+            title=title, width=800, height=400
+        )
+        fig.update_layout(showlegend=False)
+        return fig
 
-        if df.empty or synthetic_data.empty:
-            self.results_text.appendPlainText("Error: Data not available.")
-            return
-
-        # 1) Combine original (origin=0) and synthetic (origin=1) data
-        combined_df = pd.concat([
-            df.assign(origin=0),
-            synthetic_data.assign(origin=1)
-        ], ignore_index=True)
-
-        # 2) Convert all potentially 'dict' or 'object' columns to string
-        for column in combined_df.columns:
-            combined_df[column] = combined_df[column].apply(lambda x: str(x) if isinstance(x, dict) else x)
-            # Can also force .astype(str) if necessary, but here it's sufficient
-
-        # 3) One-hot encoding
-        try:
-            X = pd.get_dummies(combined_df.drop('origin', axis=1))
-            y = combined_df['origin']
-
-            # 4) Split train/test (50/50), stratified on y
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=0.5, stratify=y, random_state=42
-            )
-
-            # 5) Train RandomForest to distinguish origin=0 vs origin=1
-            classifier = RandomForestClassifier(random_state=42)
-            classifier.fit(X_train, y_train)
-
-            # 6) Predict probabilities on X_test
-            y_pred_prob = classifier.predict_proba(X_test)[:, 1]
-
-            # 7) Calculate pMSE
-            pmse_value = mean_squared_error(y_test, y_pred_prob)
-            self.results_text.appendPlainText(f"pMSE: {pmse_value:.4f}")
-
-        except Exception as e:
-            self.results_text.appendPlainText(f"Error calculating pMSE: {str(e)}")
-########## bien 
+    def clearLayout(self):
+        """
+        Supprime tous les widgets du layout scroll_layout,
+        pour pouvoir régénérer un nouveau rapport.
+        """
+        for i in reversed(range(self.scroll_layout.count())):
+            widget = self.scroll_layout.itemAt(i).widget()
+            if widget:
+                widget.deleteLater()

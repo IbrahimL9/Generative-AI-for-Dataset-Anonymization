@@ -100,9 +100,7 @@ class New(QWidget):
         self.setLayout(main_layout)
 
     def go_to_build_page(self):
-        """Change la page actuelle pour aller à la page Build"""
-        self.main_app.changePage(4)  
-      
+        self.main_app.changePage("build")
 
     def toggle_model_selection(self):
         self.model_selection_visible = not self.model_selection_visible

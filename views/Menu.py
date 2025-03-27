@@ -5,7 +5,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 
 
 class Menu(QListWidget):
-    page_changed = pyqtSignal(int)
+    page_changed = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
@@ -50,19 +50,20 @@ class Menu(QListWidget):
                 """)
         # Mise à jour du mapping avec les nouvelles pages
         self.page_mapping = {
-            "Open file": 0,
-            "Display": 1,
-            "Inspect": 2,
-            "New": 3,
-            "Build": 4,
-            "Tools": 5,
-            "Generate": 6,
-            "Analysis": 7,
-            "Candidate Quality": 10,
-            "Fidelity": 11,
-            "Save": 8,
-            "About": 9
+            "Open file": "open",
+            "Display": "display",
+            "Inspect": "inspect",
+            "New": "new",
+            "Build": "build",
+            "Tools": "tools",
+            "Generate": "generate",
+            "Analysis": "analysis",
+            "Confidentiality": "confidentiality",
+            "Fidelity": "fidelity",
+            "Save": "save",
+            "About": "about"
         }
+
         self.pages = [
             ("Source", "icons/source.png", ["Open file", "Display", "Inspect"]),
             ("Model", "icons/model.png", ["New", "Build", "Tools"]),

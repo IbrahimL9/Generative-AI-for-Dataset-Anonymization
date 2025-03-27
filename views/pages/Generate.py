@@ -13,7 +13,7 @@ from views.Styles import BUTTON_STYLE, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYL
     INFO_MESSAGE_STYLE, BUTTON_STYLE2
 
 class Generate(QWidget):
-    data_generated_signal = pyqtSignal()  # Signal to notify that data has been generated
+    data_generated_signal = pyqtSignal()
 
     def __init__(self, main_app):
         super().__init__()
