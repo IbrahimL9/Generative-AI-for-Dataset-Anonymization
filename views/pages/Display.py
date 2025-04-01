@@ -38,7 +38,7 @@ class Display(QWidget):
         filter_layout = QHBoxLayout()
         self.filter_group.setLayout(filter_layout)
 
-        # Verbe
+
         verb_layout = QHBoxLayout()
         verb_label = QLabel("Verb:")
         self.verb_combobox = QComboBox()
@@ -50,7 +50,7 @@ class Display(QWidget):
         verb_layout.addWidget(self.verb_combobox)
         verb_layout.addWidget(self.verb_checkbox)
 
-        # Acteur
+
         actor_layout = QHBoxLayout()
         actor_label = QLabel("Actor:")
         self.actor_combobox = QComboBox()
@@ -61,6 +61,7 @@ class Display(QWidget):
         actor_layout.addWidget(actor_label)
         actor_layout.addWidget(self.actor_combobox)
         actor_layout.addWidget(self.actor_checkbox)
+        
 
         limit_layout = QHBoxLayout()
         self.number_input = QSpinBox()
@@ -134,6 +135,12 @@ class Display(QWidget):
             elif value.startswith("http"):
                 return value.split("/")[-1]
         return str(value)
+    
+    def toggle_verb_combobox(self, checked):
+        self.verb_combobox.setVisible(checked)
+
+    def toggle_actor_combobox(self, checked):
+        self.actor_combobox.setVisible(checked)
 
     def toggle_verb_combobox(self, checked):
         self.verb_combobox.setVisible(checked)
@@ -184,6 +191,7 @@ class Display(QWidget):
 
                 if (not selected_actor or selected_actor.strip().lower() == actor_name.strip().lower()) and \
                         (not selected_verb or selected_verb.strip().lower() == verb_name.strip().lower()):
+
                     filtered_events.append(e)
 
         if filtered_events:

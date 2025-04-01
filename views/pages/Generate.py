@@ -9,8 +9,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QSize
-
-# Vos propres styles
 from views.Styles import BUTTON_STYLE, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYLE, WARNING_MESSAGE_STYLE, \
     INFO_MESSAGE_STYLE, BUTTON_STYLE2
 
@@ -33,6 +31,7 @@ class Generate(QWidget):
         # Pour forcer le même Actor dans une session
         # session_id -> ID unique d'acteur (qui ira dans actor/mbox)
         self.session_actor_map = {}
+
 
         self.initUI()
 
@@ -132,6 +131,7 @@ class Generate(QWidget):
     # -----------------------------------------------------------------------
     #  FINISH GENERATION
     # -----------------------------------------------------------------------
+
 
     def finish_generation(self, num_records):
         """
@@ -257,6 +257,7 @@ class Generate(QWidget):
     # -----------------------------------------------------------------------
     #  SAUVEGARDE
     # -----------------------------------------------------------------------
+
 
     def save_generated_data(self):
         """
