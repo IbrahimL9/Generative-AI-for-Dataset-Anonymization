@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QSize
 import json
+import hashlib
 import pandas as pd
 from views.Styles import BUTTON_STYLE, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYLE, WARNING_MESSAGE_STYLE, \
     INFO_MESSAGE_STYLE, BUTTON_STYLE2
@@ -24,6 +25,7 @@ class Generate(QWidget):
         self.model_loaded = False
         self.data_generated = False
         self.generated_data = None
+        self.actor_map = {}  # Dictionnaire pour stocker les correspondances anonymisées
         self.initUI()
 
     def initUI(self):
@@ -119,6 +121,18 @@ class Generate(QWidget):
         self.progress_bar.setVisible(True)
         QTimer.singleShot(2000, lambda: self.finish_generation(num_records))
 
+
+
+
+        
+
+    def anonymize_actor(self, actor_name):
+        """ Génère un identifiant anonymisé unique pour chaque acteur. """
+        if actor_name not in self.actor_map:
+            hash_id = hashlib.sha256(actor_name.encode()).hexdigest()[:10]  # Hash unique
+            self.actor_map[actor_name] = f"{hash_id}@open.ac.uk"
+        return self.actor_map[actor_name]
+
     def finish_generation(self, num_records):
         self.progress_bar.setVisible(False)
 
@@ -126,7 +140,10 @@ class Generate(QWidget):
             df = self.model.sample(num_records)
             self.generated_data = []
             base_ts = int(time.time())
+
             for index, row in df.iterrows():
+                anonymized_actor = self.anonymize_actor(row["Actor"])  # Anonymisation
+
                 entry = {
                     "id": str(uuid.uuid4()),
                     "timestamp": row["timestamp"],
@@ -135,12 +152,13 @@ class Generate(QWidget):
                         "id": f"https://w3id.org/xapi/dod-isd/verbs/{row['Verb']}"
                     },
                     "actor": {
-                        "mbox": f"mailto:{row['Actor']}@open.ac.uk"
+                        "mbox": f"mailto:{anonymized_actor}"
                     },
                     "object": {
                         "id": f"http://open.ac.uk/{row['Object']}"
                     }
                 }
+
                 self.generated_data.append(entry)
 
         self.data_generated = True
