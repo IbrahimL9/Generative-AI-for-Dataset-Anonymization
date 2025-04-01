@@ -7,6 +7,7 @@ from PyQt6.QtCore import Qt
 import pandas as pd
 from datetime import datetime
 
+
 class Display(QWidget):
     def __init__(self, download_button, main_app):
         super().__init__()
@@ -37,7 +38,7 @@ class Display(QWidget):
         filter_layout = QHBoxLayout()
         self.filter_group.setLayout(filter_layout)
 
-# Verbe
+
         verb_layout = QHBoxLayout()
         verb_label = QLabel("Verb:")
         self.verb_combobox = QComboBox()
@@ -50,7 +51,6 @@ class Display(QWidget):
         verb_layout.addWidget(self.verb_checkbox)
 
 
-                # Acteur
         actor_layout = QHBoxLayout()
         actor_label = QLabel("Actor:")
         self.actor_combobox = QComboBox()
@@ -142,6 +142,12 @@ class Display(QWidget):
     def toggle_actor_combobox(self, checked):
         self.actor_combobox.setVisible(checked)
 
+    def toggle_verb_combobox(self, checked):
+        self.verb_combobox.setVisible(checked)
+
+    def toggle_actor_combobox(self, checked):
+        self.actor_combobox.setVisible(checked)
+
     def updateTable(self):
         data = self.download_button.json_data
         if not data:
@@ -184,7 +190,8 @@ class Display(QWidget):
                 verb_name = self.extract_name(verb.get("id", ""))
 
                 if (not selected_actor or selected_actor.strip().lower() == actor_name.strip().lower()) and \
-                   (not selected_verb or selected_verb.strip().lower() == verb_name.strip().lower()):
+                        (not selected_verb or selected_verb.strip().lower() == verb_name.strip().lower()):
+
                     filtered_events.append(e)
 
         if filtered_events:
@@ -193,6 +200,7 @@ class Display(QWidget):
             self.afficher_tableau(filtered_events)
         else:
             QMessageBox.warning(self, "No Events", "No events found for the selected actor and verb.")
+
     def afficher_tableau(self, events):
         self.table.setRowCount(len(events))
         for row, event in enumerate(events):
@@ -213,8 +221,8 @@ class Display(QWidget):
                 duration_str = "0"
 
             items = [
-                QTableWidgetItem(ts_str),       # Colonne Timestamp
-                QTableWidgetItem(duration_str),   # Colonne Duration (s)
+                QTableWidgetItem(ts_str),  # Colonne Timestamp
+                QTableWidgetItem(duration_str),  # Colonne Duration (s)
                 QTableWidgetItem(self.extract_name(event.get("actor", {}).get("mbox", ""))),
                 QTableWidgetItem(self.extract_name(event.get("verb", {}).get("id", ""))),
                 QTableWidgetItem(self.extract_name(event.get("object", {}).get("id", "")))
@@ -232,7 +240,8 @@ class Display(QWidget):
                 return events
 
             df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-            df['actor_name'] = df['actor'].apply(lambda a: self.extract_name(a.get('mbox', '')) if isinstance(a, dict) else str(a))
+            df['actor_name'] = df['actor'].apply(
+                lambda a: self.extract_name(a.get('mbox', '')) if isinstance(a, dict) else str(a))
             df = df.sort_values(by=['actor_name', 'timestamp'])
             df['Duration'] = df.groupby('actor_name')['timestamp'].diff().dt.total_seconds().fillna(0)
 
