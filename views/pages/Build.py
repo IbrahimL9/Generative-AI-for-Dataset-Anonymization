@@ -189,18 +189,18 @@ class Build(QWidget):
 
         if 'timestamp' in df.columns:
             df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-            df = df.sort_values(by='timestamp')
-            # Optionnel : formater le timestamp en chaîne de caractères (exemple : "YYYY-MM-DD HH:MM:SS")
+            df = df.sort_values(by=['Actor', 'timestamp'])  # Tri par acteur et temps
+
+            # Calcul des durées réelles entre les événements d'un même acteur
+            df['Duration'] = df.groupby('Actor')['timestamp'].diff().dt.total_seconds().fillna(0)
+
+            # Formatage optionnel du timestamp pour l'affichage
             df['timestamp'] = df['timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S")
         else:
-            # Si aucun timestamp n'est présent, en créer un avec la date actuelle
+            # Si aucun timestamp, on ajoute un par défaut + une durée de 0
             df['timestamp'] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+            df['Duration'] = 0
 
-        # Générer des durées aléatoires entre 5 et 600 secondes
-        num_rows = len(df)
-        df['Duration'] = np.random.uniform(low=5, high=600, size=num_rows).round(2)
-
-        # Garder uniquement les colonnes nécessaires pour l'entraînement, y compris le timestamp
         return df[['timestamp', 'Duration', 'Actor', 'Verb', 'Object']]
 
 

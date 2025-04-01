@@ -75,6 +75,8 @@ class AnonymizationApp(QWidget):
         self.pages["open"].fileLoaded.connect(self.pages["generate"].on_file_loaded)
         self.pages["generate"].data_generated_signal.connect(self.pages["save"].on_data_generated)
         self.pages["generate"].data_generated_signal.connect(self.pages["confidentiality"].on_data_generated)
+        self.pages["generate"].data_generated_signal.connect(self.pages["fidelity"].on_data_generated)
+
 
     def centerWindow(self):
         """Center the main window."""
