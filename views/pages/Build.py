@@ -4,7 +4,7 @@ import pickle
 import numpy as np
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QDialog, QPlainTextEdit, QApplication, QSpacerItem,
-    QSizePolicy, QHBoxLayout
+    QSizePolicy, QHBoxLayout, QComboBox
 )
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
@@ -64,6 +64,18 @@ class Build(QWidget):
         # Layout for buttons
         button_layout = QHBoxLayout()
         button_layout.setContentsMargins(0, 0, 0, 0)
+
+        # ComboBox pour choisir le mode (Actions ou Sessions)
+        mode_label = QLabel("Data Mode :")
+        mode_label.setFont(QFont("Arial", 12))
+        self.data_mode_combo = QComboBox()
+        self.data_mode_combo.addItems(["Actions", "Sessions"])  # 2 modes
+        # On va ajouter ce combo box dans le layout
+        button_layout.addWidget(mode_label)
+        button_layout.addWidget(self.data_mode_combo)
+
+        # Espacement
+        button_layout.addSpacing(40)
 
         # "Train Model" BUTTON
         self.train_model_button = QPushButton("Train Model", self)
@@ -187,21 +199,45 @@ class Build(QWidget):
     def preprocess_data(self, df):
         df = simplify_df(df)
 
+        # Convertir timestamp en datetime si present
         if 'timestamp' in df.columns:
             df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-            df = df.sort_values(by=['Actor', 'timestamp'])  # Tri par acteur et temps
-
-            # Calcul des durées réelles entre les événements d'un même acteur
-            df['Duration'] = df.groupby('Actor')['timestamp'].diff().dt.total_seconds().fillna(0)
-
-            # Formatage optionnel du timestamp pour l'affichage
-            df['timestamp'] = df['timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S")
+            df = df.sort_values(by=['Actor', 'timestamp'])
         else:
-            # Si aucun timestamp, on ajoute un par défaut + une durée de 0
-            df['timestamp'] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
-            df['Duration'] = 0
+            # Sinon, on ajoute un timestamp par defaut
+            df['timestamp'] = pd.Timestamp.now()
 
-        return df[['timestamp', 'Duration', 'Actor', 'Verb', 'Object']]
+        # Recupere le mode selectionne : "Actions" ou "Sessions"
+        mode = self.data_mode_combo.currentText()
+
+        if mode == "Sessions":
+            # 1) Calcul time_diff
+            df['time_diff'] = df.groupby('Actor')['timestamp'].diff().fillna(pd.Timedelta(seconds=0))
+            # 2) Si ecart > 5 min => new session
+            df['new_session'] = (df['time_diff'] > pd.Timedelta(minutes=5)).astype(int)
+            # 3) session_id
+            df['session_id'] = df.groupby('Actor')['new_session'].cumsum()
+            # 4) Duration = time_diff
+            df['Duration'] = df['time_diff'].dt.total_seconds().fillna(0)
+
+            # Nettoyage
+            df.drop(columns=['time_diff','new_session'], inplace=True)
+
+            # Formatage eventuel du timestamp
+            df['timestamp'] = df['timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S")
+
+            # On inclut session_id dans le DataFrame final
+            cols = ['timestamp','Duration','Actor','Verb','Object','session_id']
+            df = df[cols]
+
+        else:  # mode == "Actions"
+            # On calcule juste la duree
+            df['Duration'] = df.groupby('Actor')['timestamp'].diff().dt.total_seconds().fillna(0)
+            df['timestamp'] = df['timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S")
+            cols = ['timestamp','Duration','Actor','Verb','Object']
+            df = df[cols]
+
+        return df
 
 
 def simplify_df(df):
