@@ -88,17 +88,6 @@ class Menu(QListWidget):
                 sub_item_widget = QListWidgetItem(f"    • {sub_item}")
                 sub_item_widget.setFont(QFont("Montserrat", 10))
 
-                if sub_item == "Build":
-                    # L'élément s'affiche mais ne peut pas être sélectionné et ne déclenche pas d'action
-                    sub_item_widget.setFlags(Qt.ItemFlag.ItemIsEnabled)
-                    sub_item_widget.setFlags(sub_item_widget.flags() & ~Qt.ItemFlag.ItemIsSelectable)
-                    # Désactiver les signaux pour cet élément
-                    sub_item_widget.setFlags(sub_item_widget.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)
-                else:
-                    sub_item_widget.setFlags(
-                        sub_item_widget.flags() | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
-                    )
-
                 sub_item_widget.setHidden(False)
                 self.sub_items[section].append(sub_item_widget)
                 self.addItem(sub_item_widget)
@@ -127,10 +116,6 @@ class Menu(QListWidget):
         item = self.item(index)
         # Récupérer le texte sans indentation ni puce
         item_text = item.text().strip().replace("• ", "")
-
-        # Si l'élément est "Build", ne rien faire
-        if item_text == "Build":
-            return
 
         # Si un élément de sous-menu "Analysis" est déjà présent et que l'utilisateur sélectionne un autre item qui n'est pas ces sous-menus, on les retire.
         if item_text not in ["Analysis", "Confidentiality", "Fidelity"]:
