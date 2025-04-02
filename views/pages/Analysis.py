@@ -10,7 +10,6 @@ from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QScrollArea
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 
-
 class Analysis(QWidget):
     def __init__(self, main_app):
         super().__init__()
@@ -18,6 +17,7 @@ class Analysis(QWidget):
         self.analysis_generated = False  # Flag indiquant si l'analyse a déjà été générée
         self.html_file_path = "comparative_analysis.html"  # Chemin du fichier HTML
         self.web_view = None  # Widget pour afficher le rapport HTML
+        self.session_data = self.main_app.session_data
         self.initUI()
 
     def initUI(self):
@@ -42,42 +42,92 @@ class Analysis(QWidget):
         self.setLayout(layout)
 
     def showEvent(self, event):
-        # À l'affichage de la page, on vérifie si l'analyse a déjà été générée.
+        print("showEvent called")  # Vérification du moment où showEvent est exécuté
         if not self.analysis_generated:
+            print("Running analysis...")
             self.runAnalysis()
         super().showEvent(event)
 
     def runAnalysis(self):
-        self.clearLayout()
+        # Vérification des données de session
+        session_data = self.main_app.session_data
+        if session_data is None or session_data.empty:
+            print("No session data found. Please load or create session data first.")
+            no_session_label = QLabel("No session data found. Please load or create session data first.")
+            self.scroll_layout.addWidget(no_session_label)
+            return
 
+        # Vérification des données originales
         df_original = getattr(self.main_app, "processed_dataframe", None)
         if df_original is None or df_original.empty:
             no_data_label = QLabel("No original DataFrame found. Please load a file in 'Display' first.")
             self.scroll_layout.addWidget(no_data_label)
             return
 
+        # Vérification des données générées
         generate_page = self.main_app.pages.get("generate", None)
-        if not generate_page or not generate_page.generated_data:
+        if generate_page is None:
             no_gen_label = QLabel("No generated data found. Please generate data in 'Generate' first.")
             self.scroll_layout.addWidget(no_gen_label)
             return
 
         events_gen = generate_page.generated_data
 
-        # Conversion de la liste de dictionnaires en DataFrame
-        df_generated = pd.DataFrame(events_gen)
+        # Vérification si generated_data est vide
+        if isinstance(events_gen, pd.DataFrame) and events_gen.empty:
+            no_gen_label = QLabel("Generated data is empty. Please generate data in 'Generate' first.")
+            self.scroll_layout.addWidget(no_gen_label)
+            return
+        elif isinstance(events_gen, list) and not events_gen:
+            no_gen_label = QLabel("Generated data list is empty. Please generate data in 'Generate' first.")
+            self.scroll_layout.addWidget(no_gen_label)
+            return
 
-        # Génération des rapports HTML pour les données réelles et générées
-        html_original = self.create_analysis_html(df_original, "ORIGINAL DATA")
-        html_generated = self.create_analysis_html(df_generated, "GENERATED DATA")
+        # Conversion des données générées en DataFrame
+        df_generated = self.convert_generated_data(events_gen)
 
-        # Fusionner les deux rapports dans un seul bloc HTML côte à côte avec Flexbox
-        final_html = f"""
-        <div style="display: flex; flex-direction: row; justify-content: space-around;">
-            <div style="flex: 1; margin: 10px;">{html_original}</div>
-            <div style="flex: 1; margin: 10px;">{html_generated}</div>
-        </div>
-        """
+        # Vérification de la structure des données
+        if not self.validate_dataframe(df_generated):
+            error_label = QLabel("Generated data structure is not compatible with original data.")
+            self.scroll_layout.addWidget(error_label)
+            return
+
+        # Déterminer si les données générées sont des sessions ou des actions
+        is_session_data = 'actions' in session_data.columns
+
+        if is_session_data:
+            # Combiner toutes les actions de toutes les sessions en un seul DataFrame
+            all_session_data = []
+            for row in session_data['actions']:
+                if isinstance(row, list) and all(isinstance(action, dict) for action in row):
+                    all_session_data.extend(row)
+                else:
+                    print("Invalid 'actions' format in session_data")
+            df_all_sessions = pd.DataFrame(all_session_data)
+
+            # Génération des rapports HTML pour les données réelles et les sessions
+            html_original = self.create_analysis_html(df_original, "ORIGINAL DATA")
+            html_all_sessions = self.create_analysis_html(df_all_sessions, "GENERATED SESSION DATA")
+
+            # Fusionner les rapports dans un seul bloc HTML côte à côte avec Flexbox
+            final_html = f"""
+            <div style="display: flex; flex-direction: row; justify-content: space-around;">
+                <div style="flex: 1; margin: 10px;">{html_original}</div>
+                <div style="flex: 1; margin: 10px;">{html_all_sessions}</div>
+            </div>
+            """
+        else:
+            # Génération des rapports HTML pour les données réelles et les actions
+            html_original = self.create_analysis_html(df_original, "ORIGINAL DATA")
+            html_generated = self.create_analysis_html(df_generated, "GENERATED ACTION DATA")
+
+            # Fusionner les rapports dans un seul bloc HTML côte à côte avec Flexbox
+            final_html = f"""
+            <div style="display: flex; flex-direction: row; justify-content: space-around;">
+                <div style="flex: 1; margin: 10px;">{html_original}</div>
+                <div style="flex: 1; margin: 10px;">{html_generated}</div>
+            </div>
+            """
 
         # Sauvegarde du rapport dans un fichier HTML local
         with open(self.html_file_path, "w", encoding="utf-8") as f:
@@ -89,6 +139,40 @@ class Analysis(QWidget):
             self.scroll_layout.addWidget(self.web_view)
         self.web_view.setUrl(QUrl.fromLocalFile(os.path.abspath(self.html_file_path)))
         self.analysis_generated = True  # Marquer que l'analyse a été générée
+
+    def convert_generated_data(self, events_gen):
+        """
+        Convertit les données générées en DataFrame avec le même format que les données originales.
+        """
+        if isinstance(events_gen, pd.DataFrame) and 'actions' in events_gen.columns:
+            # Si les données sont déjà sous forme de DataFrame avec une colonne 'actions'
+            data_list = []
+            for actions in events_gen['actions']:
+                for action in actions:
+                    data_list.append({
+                        'id': action['id'],
+                        'timestamp': action['timestamp'],
+                        'verb': action['verb']['id'],
+                        'actor': action['actor']['mbox'],
+                        'object': action['object']['id'],
+                        'duration': action.get('duration', 0.0)  # Utiliser 0.0 si 'duration' n'existe pas
+                    })
+            return pd.DataFrame(data_list)
+        elif isinstance(events_gen, list):
+            # Si les données sont sous forme de liste de dictionnaires
+            return pd.DataFrame(events_gen)
+        else:
+            return pd.DataFrame()
+
+
+
+
+    def validate_dataframe(self, df):
+        """
+        Vérifie si le DataFrame a la structure attendue.
+        """
+        required_columns = {'id', 'timestamp', 'verb', 'actor', 'object', 'duration'}
+        return required_columns.issubset(df.columns)
 
     def create_analysis_html(self, df, dataset_title):
         """
@@ -107,10 +191,8 @@ class Analysis(QWidget):
         if 'timestamp' in df.columns:
             sample = df['timestamp'].iloc[0] if not df['timestamp'].empty else None
             if sample is not None and isinstance(sample, str):
-                # Si le timestamp ressemble à "YYYY-MM-DD HH:MM:SS"
                 if "-" in sample or ":" in sample:
                     timestamps = pd.to_datetime(df['timestamp'], format="%Y-%m-%d %H:%M:%S", errors='coerce').dropna()
-                # Sinon, si c'est un nombre en chaîne, on le convertit en numérique avant de le parser
                 elif sample.isdigit():
                     timestamps = pd.to_datetime(pd.to_numeric(df['timestamp']), unit='s', errors='coerce').dropna()
                 else:
@@ -138,9 +220,8 @@ class Analysis(QWidget):
         else:
             avg_events = min_events = max_events = std_events = 0
 
-        # Calcul de la durée moyenne par verbe, si disponible
-        if 'Duration' in df.columns:
-            durations_per_verb = df.groupby('verb_name')['Duration'].apply(list)
+        if 'duration' in df.columns:
+            durations_per_verb = df.groupby('verb_name')['duration'].apply(list)
             avg_duration_per_verb = {v: mean(d) for v, d in durations_per_verb.items() if d}
         else:
             avg_duration_per_verb = {}
@@ -163,7 +244,6 @@ class Analysis(QWidget):
         if actor_counts:
             fig_list.append(self.create_actor_pie_chart(actor_counts, title_prefix + "Actor Distribution"))
 
-        # Conversion de toutes les figures en HTML
         fig_html = "".join([pio.to_html(fig, full_html=False) for fig in fig_list])
         return f"<h2>{dataset_title}</h2>" + fig_html
 
@@ -194,11 +274,10 @@ class Analysis(QWidget):
             return oid.split("/")[-1]
         return oid
 
-    # --- Fonctions de création de graphiques Plotly avec couleurs ---
+    # --- Fonctions de création de graphiques Plotly ---
     def create_bar_chart(self, data, title, y_axis="Count"):
         labels = list(data.keys())
         values = [data[label] for label in labels]
-        # Palette de couleurs pour les barres
         colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
         fig = px.bar(
             x=labels, y=values,
@@ -213,7 +292,6 @@ class Analysis(QWidget):
     def create_histogram(self, avg_value, min_value, max_value, title):
         labels = ["Average", "Min", "Max"]
         values = [avg_value, min_value, max_value]
-        # Palette pour l'histogramme (3 couleurs)
         colors = ['#636EFA', '#EF553B', '#00CC96']
         fig = px.bar(
             x=labels, y=values,
@@ -228,7 +306,6 @@ class Analysis(QWidget):
     def create_event_time_chart(self, first_event, last_event, title):
         labels = ["First Event", "Last Event"]
         values = [1, 1]
-        # Palette pour deux barres
         colors = ['#636EFA', '#EF553B']
         fig = px.bar(
             x=labels, y=values,
@@ -265,11 +342,21 @@ class Analysis(QWidget):
             names=labels,
             values=sizes,
             title=title,
-            width=800, height=400,
-            color_discrete_sequence=colors
+            width=800, height=400
         )
-        fig.update_layout(showlegend=False)
+        fig.update_traces(marker=dict(colors=colors[:len(labels)]))
         return fig
+
+
+    def clear_layout(self, layout):
+        """Supprimer tous les widgets d'un layout donné."""
+        if layout is not None:
+            while layout.count():
+                child = layout.takeAt(0)
+                if child.widget():
+                    child.widget().deleteLater()
+
+
 
     def create_object_pie_chart(self, object_counts, title):
         labels = list(object_counts.keys())
@@ -280,14 +367,7 @@ class Analysis(QWidget):
             names=labels,
             values=sizes,
             title=title,
-            width=800, height=400,
-            color_discrete_sequence=colors
+            width=800, height=400
         )
-        fig.update_layout(showlegend=False)
+        fig.update_traces(marker=dict(colors=colors[:len(labels)]))
         return fig
-
-    def clearLayout(self):
-        for i in reversed(range(self.scroll_layout.count())):
-            widget = self.scroll_layout.itemAt(i).widget()
-            if widget:
-                widget.deleteLater()
