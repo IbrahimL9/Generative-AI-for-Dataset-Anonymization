@@ -15,10 +15,12 @@ from views.pages.Generate import Generate
 from views.Download_button import DownloadButton
 from views.pages.Fidelity import Fidelity
 from views.pages.Confidentiality import Confidentiality
+import pandas as pd
 
 class AnonymizationApp(QWidget):
     def __init__(self):
         super().__init__()
+        self.session_data = pd.DataFrame()
         self.initUI()
 
     def initUI(self):

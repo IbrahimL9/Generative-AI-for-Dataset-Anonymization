@@ -23,15 +23,13 @@ class Generate(QWidget):
         self.model_loaded = False
         self.data_generated = False
         self.generated_data = None
+        self.session_data = pd.DataFrame()
 
         # Pour forcer le même ID dans une session
-        # session_id -> ID unique pour toutes les actions
         self.session_id_map = {}
 
         # Pour forcer le même Actor dans une session
-        # session_id -> ID unique d'acteur (qui ira dans actor/mbox)
         self.session_actor_map = {}
-
 
         self.initUI()
 
@@ -97,6 +95,11 @@ class Generate(QWidget):
         self.setLayout(main_layout)
         self.setWindowTitle("Generative AI for Dataset Anonymization")
 
+    def load_session_data(self, data):
+        # Exemple de méthode pour charger des données dans la session
+        self.session_data = data
+        self.main_app.session_data = data
+
     def on_model_loaded(self, model):
         """Appelé quand le modèle est chargé ou entraîné."""
         self.model = model
@@ -128,11 +131,6 @@ class Generate(QWidget):
         self.progress_bar.setVisible(True)
         QTimer.singleShot(2000, lambda: self.finish_generation(num_records))
 
-    # -----------------------------------------------------------------------
-    #  FINISH GENERATION
-    # -----------------------------------------------------------------------
-
-
     def finish_generation(self, num_records):
         """
         Génère les données. Dans le cas "Sessions", TOUTES les actions
@@ -159,12 +157,19 @@ class Generate(QWidget):
                     )
                     df_sessions.drop("session_id", axis=1, inplace=True)
                     self.generated_data = df_sessions
+
+                    # Mettre à jour session_data ici
+                    self.main_app.session_data = df_sessions.copy()
+
                     self.show_message(f"{len(df_sessions)} sessions générées.")
                 else:
                     # => MODE ACTIONS
-                    # Pas de notion de session => on génère action par action
                     actions = [self._build_action(row, session_id=None) for _, row in df.iterrows()]
                     self.generated_data = actions
+
+                    # Mettre à jour session_data ici
+                    self.main_app.session_data = pd.DataFrame(actions)
+
                     self.show_message(f"{num_records} actions générées.")
 
             self.data_generated = True
@@ -235,10 +240,6 @@ class Generate(QWidget):
             "duration": float(row.get("Duration", 0.0))
         }
 
-    # -----------------------------------------------------------------------
-    #  OUTILS
-    # -----------------------------------------------------------------------
-
     def random_id(self, length=6):
         import string, random
         return ''.join(random.choices(string.digits, k=length))
@@ -253,11 +254,6 @@ class Generate(QWidget):
             return dt.isoformat(timespec='seconds')
         except:
             return str(value)
-
-    # -----------------------------------------------------------------------
-    #  SAUVEGARDE
-    # -----------------------------------------------------------------------
-
 
     def save_generated_data(self):
         """

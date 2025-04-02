@@ -239,7 +239,6 @@ class Build(QWidget):
 
         return df
 
-
 def simplify_df(df):
     def simplify_value(x, key):
         if isinstance(x, dict):

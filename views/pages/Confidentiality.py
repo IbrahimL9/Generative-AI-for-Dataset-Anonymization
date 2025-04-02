@@ -13,7 +13,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import pairwise_distances, mean_squared_error
 from sklearn.ensemble import RandomForestClassifier
 
-
 class Confidentiality(QWidget):
     def __init__(self, main_app):
         super().__init__()
@@ -69,6 +68,10 @@ class Confidentiality(QWidget):
 
         if self.original_data.empty or self.synthetic_data.empty:
             self.results_text.appendPlainText("Error: Data not available or incorrect.")
+            return
+
+        # Check if the data is in session mode
+        self.is_session_mode = 'session_id' in self.original_data.columns
 
     def ensure_dataframe(self, data):
         """Converts your data to DataFrame if necessary."""
@@ -80,32 +83,43 @@ class Confidentiality(QWidget):
             return pd.DataFrame(data)
         return pd.DataFrame()
 
+    def flatten_synthetic_data(self, synthetic_data):
+        """Aplatir les données synthétiques pour correspondre à la structure de original_data."""
+        if 'actions' in synthetic_data.columns:
+            # Extraire les informations pertinentes de 'actions'
+            flattened_data = []
+            for actions in synthetic_data['actions']:
+                for action in actions:
+                    flattened_data.append({
+                        'id': action.get('id'),
+                        'timestamp': action.get('timestamp'),
+                        'verb': action.get('verb', {}).get('id'),
+                        'actor': action.get('actor', {}).get('mbox'),
+                        'object': action.get('object', {}).get('id'),
+                        'duration': action.get('duration', 0.0)
+                    })
+            return pd.DataFrame(flattened_data)
+        return synthetic_data
+
     def calculate_cramers_v(self):
         """Calculates and displays Cramer's V for categorical columns."""
-
         def cramers_v(x, y):
+            # Convert values to strings to avoid errors
             x = x.astype(str)
             y = y.astype(str)
 
             confusion_matrix = pd.crosstab(x, y)
             chi2 = chi2_contingency(confusion_matrix)[0]
             n = confusion_matrix.sum().sum()
-
-            if n == 0:  # Éviter la division par zéro
-                return np.nan
-
             phi2 = chi2 / n
             r, k = confusion_matrix.shape
-
             phi2corr = max(0, phi2 - ((k - 1) * (r - 1)) / (n - 1))
             rcorr = r - ((r - 1) ** 2) / (n - 1)
             kcorr = k - ((k - 1) ** 2) / (n - 1)
-
-            denominator = min((kcorr - 1), (rcorr - 1))
-            return np.sqrt(phi2corr / denominator) if denominator > 0 else np.nan
+            return np.sqrt(phi2corr / min((kcorr - 1), (rcorr - 1)))
 
         df = self.original_data
-        synthetic_data = self.synthetic_data
+        synthetic_data = self.flatten_synthetic_data(self.synthetic_data)
 
         if df.empty or synthetic_data.empty:
             self.results_text.appendPlainText("Error: Data not available.")
@@ -121,23 +135,20 @@ class Confidentiality(QWidget):
             else:
                 self.results_text.appendPlainText(f"Column '{column}' missing in data.")
 
-        if not any(np.isfinite(v) for v in results.values()):
-            self.results_text.appendPlainText("No valid Cramer's V values could be calculated.")
-            return
         # Display the plot only if there are results
         if results:
             self.plot_cramers_v(results)
 
     def plot_cramers_v(self, results):
-        # Filtrer les colonnes et les valeurs NaN ensemble
+        # Filter out columns and values with NaN together
         filtered_results = {col: v for col, v in results.items() if np.isfinite(v)}
 
-        if not filtered_results:  # Vérifier si on a encore des valeurs après filtrage
+        if not filtered_results:  # Check if there are still values after filtering
             self.results_text.appendPlainText("No valid Cramer's V values to plot.")
             return
 
         columns = list(filtered_results.keys())
-        cramer_values = list(filtered_results.values())  # Maintenant, les tailles sont alignées
+        cramer_values = list(filtered_results.values())  # Now, lengths are aligned
 
         plt.figure(figsize=(10, 6))
         bars = plt.bar(columns, cramer_values)
@@ -156,7 +167,7 @@ class Confidentiality(QWidget):
 
     def calculate_dcr(self):
         df = self.original_data
-        synthetic_data = self.synthetic_data
+        synthetic_data = self.flatten_synthetic_data(self.synthetic_data)
 
         if df.empty or synthetic_data.empty:
             self.results_text.appendPlainText("Error: Data not available.")
@@ -183,8 +194,8 @@ class Confidentiality(QWidget):
         # 5) Align columns after one-hot encoding
         common_encoded_cols = list(
             set(train_encoded.columns)
-                .intersection(holdout_encoded.columns)
-                .intersection(synthetic_encoded.columns)
+            .intersection(holdout_encoded.columns)
+            .intersection(synthetic_encoded.columns)
         )
 
         train_encoded = train_encoded[common_encoded_cols]
@@ -206,22 +217,18 @@ class Confidentiality(QWidget):
 
     def calculate_pmse(self):
         df = self.original_data
-        synthetic_data = self.synthetic_data
+        synthetic_data = self.flatten_synthetic_data(self.synthetic_data)
 
         if df.empty or synthetic_data.empty:
             self.results_text.appendPlainText("Error: Data not available.")
             return
 
         # 1) Combine original (origin=0) and synthetic (origin=1) data
-        combined_df = pd.concat([
-            df.assign(origin=0),
-            synthetic_data.assign(origin=1)
-        ], ignore_index=True)
+        combined_df = pd.concat([df.assign(origin=0), synthetic_data.assign(origin=1)], ignore_index=True)
 
         # 2) Convert all potentially 'dict' or 'object' columns to string
         for column in combined_df.columns:
             combined_df[column] = combined_df[column].apply(lambda x: str(x) if isinstance(x, dict) else x)
-            # Can also force .astype(str) if necessary, but here it's sufficient
 
         # 3) One-hot encoding
         try:
@@ -229,9 +236,7 @@ class Confidentiality(QWidget):
             y = combined_df['origin']
 
             # 4) Split train/test (50/50), stratified on y
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=0.5, stratify=y, random_state=42
-            )
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, stratify=y, random_state=42)
 
             # 5) Train RandomForest to distinguish origin=0 vs origin=1
             classifier = RandomForestClassifier(random_state=42)
@@ -246,3 +251,4 @@ class Confidentiality(QWidget):
 
         except Exception as e:
             self.results_text.appendPlainText(f"Error calculating pMSE: {str(e)}")
+
