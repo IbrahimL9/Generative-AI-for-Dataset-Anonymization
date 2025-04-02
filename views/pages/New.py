@@ -88,6 +88,7 @@ class New(QWidget):
         self.continue_button.setFixedWidth(200)
         main_layout.addWidget(self.continue_button, alignment=Qt.AlignmentFlag.AlignCenter)
         self.continue_button.clicked.connect(self.go_to_build_page)
+        self.continue_button.setEnabled(False)
         main_layout.addSpacing(70)
 
         # Progress bar
@@ -96,6 +97,7 @@ class New(QWidget):
         self.progress_bar.setMaximum(100)
         self.progress_bar.setValue(0)
         main_layout.addWidget(self.progress_bar, alignment=Qt.AlignmentFlag.AlignCenter)
+
 
         self.setLayout(main_layout)
 
@@ -106,11 +108,8 @@ class New(QWidget):
         self.model_selection_visible = not self.model_selection_visible
         self.model_combo.setVisible(self.model_selection_visible)
         self.model_selection_label.setVisible(self.model_selection_visible)
-
-    def new_model(self):
-        selected_model = self.model_combo.currentText()
-        print("New model selected:", selected_model)
-        self.show_message(f"New model '{selected_model}' created.")
+        self.continue_button.setEnabled(self.model_selection_visible)
+        self.continue_button.setStyleSheet(BUTTON_STYLE3)
 
     def load_model(self):
         anonymization_app = self.parent().parent()
@@ -141,6 +140,7 @@ class New(QWidget):
 
                 # Fix for joblib issue
                 joblib.parallel_backend('loky', n_jobs=1)
+                self.continue_button.setEnabled(True)
             except Exception as e:
                 self.progress_bar.setVisible(False)
                 self.show_message(f"Error loading the model.\nDetails: {str(e)}")
