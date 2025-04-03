@@ -132,6 +132,7 @@ class Menu(QListWidget):
                     sub_item_widget.setFlags(sub_item_widget.flags() & ~Qt.ItemFlag.ItemIsSelectable)
                     sub_item_widget.setFlags(sub_item_widget.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)
 
+
                 sub_item_widget.setHidden(False)
                 self.sub_items[section].append(sub_item_widget)
                 
@@ -164,6 +165,8 @@ class Menu(QListWidget):
 
         if item_text == "Build":
             return
+
+        # Si un élément de sous-menu "Analysis" est déjà présent et que l'utilisateur sélectionne un autre item qui n'est pas ces sous-menus, on les retire.
 
         if item_text not in ["Analysis", "Confidentiality", "Fidelity"]:
             if self.analysis_submenu:

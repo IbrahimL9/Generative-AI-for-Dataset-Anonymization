@@ -61,21 +61,26 @@ class Build(QWidget):
         layout.addWidget(title, alignment=Qt.AlignmentFlag.AlignTop)
 
         layout.addSpacing(32)
+
+        # Layout for data mode selection
+        self.mode_selection_layout = QHBoxLayout()
+        self.mode_selection_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # ComboBox pour choisir le mode (Actions ou Sessions)
+        self.mode_label = QLabel("Data Mode :")
+        self.mode_label.setFont(QFont("Arial", 12))
+        self.data_mode_combo = QComboBox()
+        self.data_mode_combo.addItems(["Actions", "Sessions"])
+        self.mode_selection_layout.addWidget(self.mode_label)
+        self.mode_selection_layout.addWidget(self.data_mode_combo)
+
+        # Add the mode selection layout
+        layout.addLayout(self.mode_selection_layout)
+        layout.addSpacing(20)
+
         # Layout for buttons
         button_layout = QHBoxLayout()
         button_layout.setContentsMargins(0, 0, 0, 0)
-
-        # ComboBox pour choisir le mode (Actions ou Sessions)
-        mode_label = QLabel("Data Mode :")
-        mode_label.setFont(QFont("Arial", 12))
-        self.data_mode_combo = QComboBox()
-        self.data_mode_combo.addItems(["Actions", "Sessions"])  # 2 modes
-        # On va ajouter ce combo box dans le layout
-        button_layout.addWidget(mode_label)
-        button_layout.addWidget(self.data_mode_combo)
-
-        # Espacement
-        button_layout.addSpacing(40)
 
         # "Train Model" BUTTON
         self.train_model_button = QPushButton("Train Model", self)

@@ -27,7 +27,7 @@ class Generate(QWidget):
 
         # Pour forcer le même ID dans une session
         self.session_id_map = {}
-
+        self.actor_id_map = {}
         # Pour forcer le même Actor dans une session
         self.session_actor_map = {}
 
@@ -161,7 +161,7 @@ class Generate(QWidget):
                     # Mettre à jour session_data ici
                     self.main_app.session_data = df_sessions.copy()
 
-                    self.show_message(f"{len(df_sessions)} sessions générées.")
+                    self.show_message(f"{len(df_sessions)} generated sessions.")
                 else:
                     # => MODE ACTIONS
                     actions = [self._build_action(row, session_id=None) for _, row in df.iterrows()]
@@ -170,34 +170,38 @@ class Generate(QWidget):
                     # Mettre à jour session_data ici
                     self.main_app.session_data = pd.DataFrame(actions)
 
-                    self.show_message(f"{num_records} actions générées.")
+                    self.show_message(f"{num_records} generated actions.")
 
             self.data_generated = True
             self.data_generated_signal.emit()
 
         except Exception as e:
-            self.show_message(f"Erreur pendant la génération : {str(e)}", message_type="error")
+            self.show_message(f"Error while generating : {str(e)}", message_type="error")
 
     def _build_session(self, grp):
         """
         Construit la liste d'actions pour UNE session,
-        en forçant le même 'id' ET le même actor pour toutes les actions.
+        en forçant le même 'id' pour la session
+        ET le même 'actor' pour toutes les sessions appartenant au même Actor réel.
         """
-        session_id_value = grp["session_id"].iloc[0]  # la valeur de la session
+        session_id_value = grp["session_id"].iloc[0]  # ID de la session générée
 
         # - 1) Récupère ou crée un ID unique pour TOUTES les actions de cette session
         if session_id_value not in self.session_id_map:
             self.session_id_map[session_id_value] = self.random_id(6)
         same_id_for_session = self.session_id_map[session_id_value]
 
-        # - 2) Récupère ou crée un Actor unique pour TOUTES les actions de cette session
-        if session_id_value not in self.session_actor_map:
-            self.session_actor_map[session_id_value] = self.random_id(6)
-        same_actor_for_session = self.session_actor_map[session_id_value]
+        # - 2) Récupère l'Actor réel généré par le modèle
+        real_actor = grp["Actor"].iloc[0]  # ex: "bob", "alice", etc.
+
+        # - 3) Récupère ou crée un ID d'actor synthétique associé à cet Actor
+        if real_actor not in self.actor_id_map:
+            self.actor_id_map[real_actor] = self.random_id(6)
+        same_actor_for_session = self.actor_id_map[real_actor]
 
         actions_list = []
         for _, row in grp.iterrows():
-            # On construit une action
+            # Construit l'action avec ID de session et Actor cohérent
             action_dict = self._build_action(
                 row,
                 session_id=session_id_value,
