@@ -44,6 +44,12 @@ class Open(QWidget):
 
         self.setLayout(layout)
 
+    def reset(self):
+        """Réinitialiser l'état de la page."""
+        # Réinitialiser les variables et l'interface utilisateur
+        self.download_button.json_data = None
+        # Autres réinitialisations nécessaires
+
     def updateViewButtonState(self):
         if hasattr(self.download_button, 'json_data') and self.download_button.json_data is not None:
             # Une fois le fichier téléchargé, on arrête le timer et on signale l'événement

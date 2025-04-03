@@ -39,6 +39,10 @@ class DownloadButton(QWidget):
         # Installer un event filter sur le bouton pour intercepter les événements de drag & drop
         self.button.installEventFilter(self)
 
+    def reset(self):
+        """Réinitialiser l'état du bouton de téléchargement."""
+        self.json_data = None
+
     def showEvent(self, event):
         super().showEvent(event)
         # Mettez à jour la taille par défaut une fois que le widget est affiché

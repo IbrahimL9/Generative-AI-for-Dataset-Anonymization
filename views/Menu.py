@@ -1,8 +1,6 @@
-# Menu.py
-from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QFrame, QSizePolicy
+from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QFrame, QSizePolicy, QVBoxLayout, QPushButton, QWidget
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import Qt, pyqtSignal
-
 
 class Menu(QListWidget):
     page_changed = pyqtSignal(str)
@@ -13,42 +11,80 @@ class Menu(QListWidget):
         self.setFrameStyle(QFrame.Shape.NoFrame)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         self.setStyleSheet("""
-                QListWidget {
-                    border-top-right-radius: 15px;
-                    border-bottom-right-radius: 15px;
-                    border: none;
-                    background: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1,
-                                                stop:0 rgba(189,158,215,255),
-                                                stop:1 rgba(64,89,168,255));
-                    color: white;
-                    font-size: 16px;
-                    font-weight: bold;
-                    padding-left: 10px;
-                    padding-top: 100px;
-                }
-                QListWidget::item {
-                    padding: 10px;
-                    text-align: left;
-                    padding-top: 15px;
-                    font: 50px;
-                }
-                QListWidget::item:selected {
-                    background: none;
-                    border: none;
-                }
-                QListWidget::item:focus {
-                    outline: none;
-                }
-                QListWidget::item:disabled {
-                    background: transparent;
-                    color: transparent;
-                }
-                QListWidget::item:hover:disabled {
-                    background: transparent;
-                    border: none;
-                }
-                """)
-        # Mise à jour du mapping avec les nouvelles pages
+            QListWidget {
+                border-top-right-radius: 15px;
+                border-bottom-right-radius: 15px;
+                border: none;
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1,
+                                            stop:0 rgba(189,158,215,255),
+                                            stop:1 rgba(64,89,168,255));
+                color: white;
+                font-size: 16px;
+                font-weight: bold;
+                padding-left: 10px;
+                padding-top: 100px;
+            }
+            QListWidget::item {
+                padding: 10px;
+                text-align: left;
+                padding-top: 15px;
+                font: 50px;
+            }
+            QListWidget::item:selected {
+                background: none;
+                border: none;
+            }
+            QListWidget::item:focus {
+                outline: none;
+            }
+            QListWidget::item:disabled {
+                background: transparent;
+                color: transparent;
+            }
+            QListWidget::item:hover:disabled {
+                background: transparent;
+                border: none;
+            }
+        """)
+
+        # ✅ Ajouter le bouton Refresh en haut
+        refresh_widget = QWidget()
+        refresh_layout = QVBoxLayout(refresh_widget)
+
+        self.refresh_button = QPushButton("Refresh")
+        self.refresh_button.setFixedSize(180, 40)  # ✅ Assurer une bonne taille du bouton
+        self.refresh_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4059A8;
+                color: white;
+                border: 2px solid red; /* ✅ Bordure temporaire pour tester */
+                padding: 10px;
+                font-size: 16px;
+                font-weight: bold;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #35499B;
+            }
+        """)
+        self.refresh_button.clicked.connect(self.refresh_application)
+
+        refresh_layout.addWidget(self.refresh_button)
+        refresh_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        refresh_layout.setContentsMargins(10, 10, 10, 10)
+
+        refresh_widget.setFixedSize(200, 60)  # ✅ S'assurer que le widget parent n'est pas trop petit
+
+        refresh_item = QListWidgetItem(self)
+        refresh_item.setSizeHint(refresh_widget.sizeHint())  
+        self.addItem(refresh_item)
+        self.setItemWidget(refresh_item, refresh_widget)
+
+        print("Taille du refresh_widget:", refresh_widget.sizeHint())  
+        print("Taille du refresh_button:", self.refresh_button.sizeHint())  
+        print("Texte du bouton:", self.refresh_button.text())  # ✅ Vérifier si le texte est bien défini
+
+        # 🔹 Mise à jour du mapping avec les nouvelles pages
         self.page_mapping = {
             "Open file": "open",
             "Display": "display",
@@ -75,23 +111,32 @@ class Menu(QListWidget):
         # Liste qui contiendra les sous-sous-menus pour "Analysis"
         self.analysis_submenu = []
 
-        # Ajout des sections et sous-éléments
         for section, icon_path, sub_items in self.pages:
             section_item = QListWidgetItem(QIcon(icon_path), section)
             section_item.setFont(QFont("Montserrat", 13, QFont.Weight.Bold))
             section_item.setFlags(section_item.flags() | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
             self.section_items.append(section_item)
-            self.addItem(section_item)
             self.sub_items[section] = []
+            
+            self.addItem(section_item)
 
             for sub_item in sub_items:
                 sub_item_widget = QListWidgetItem(f"    • {sub_item}")
                 sub_item_widget.setFont(QFont("Montserrat", 10))
+                sub_item_widget.setFlags(
+                    sub_item_widget.flags() | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
+                )
+
+                if sub_item == "Build":
+                    sub_item_widget.setFlags(Qt.ItemFlag.ItemIsEnabled)
+                    sub_item_widget.setFlags(sub_item_widget.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+                    sub_item_widget.setFlags(sub_item_widget.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)
+
 
                 sub_item_widget.setHidden(False)
                 self.sub_items[section].append(sub_item_widget)
+                
                 self.addItem(sub_item_widget)
-
 
         self.addSpacingItem()
         about_item = QListWidgetItem("About")
@@ -99,11 +144,13 @@ class Menu(QListWidget):
         about_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         about_item.setFlags(about_item.flags() | Qt.ItemFlag.ItemIsEnabled)
         about_item.setForeground(Qt.GlobalColor.black)
-        self.addItem(about_item)
 
         self.show_initial_submenu("Source", "Open file")
         self.currentRowChanged.connect(self.on_page_changed)
         self.page_changed.emit(self.page_mapping["Open file"])
+
+    def refresh_application(self):
+        self.page_changed.emit("refresh")
 
     def addSpacingItem(self, count=4):
         for _ in range(count):
@@ -114,10 +161,13 @@ class Menu(QListWidget):
 
     def on_page_changed(self, index):
         item = self.item(index)
-        # Récupérer le texte sans indentation ni puce
         item_text = item.text().strip().replace("• ", "")
 
+        if item_text == "Build":
+            return
+
         # Si un élément de sous-menu "Analysis" est déjà présent et que l'utilisateur sélectionne un autre item qui n'est pas ces sous-menus, on les retire.
+
         if item_text not in ["Analysis", "Confidentiality", "Fidelity"]:
             if self.analysis_submenu:
                 for sub in self.analysis_submenu:
@@ -125,27 +175,23 @@ class Menu(QListWidget):
                     self.takeItem(row)
                 self.analysis_submenu = []
 
-        # Si l'utilisateur sélectionne "Analysis", on insère les sous-sous-menus si non déjà présents.
         if item_text == "Analysis":
             if not self.analysis_submenu:
                 current_index = self.currentRow()
                 candidate_item = QListWidgetItem("              • Confidentiality")
                 candidate_item.setFont(QFont("Montserrat", 9))
-                candidate_item.setFlags(
-                    candidate_item.flags() | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                candidate_item.setFlags(candidate_item.flags() | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
                 fidelity_item = QListWidgetItem("              • Fidelity")
                 fidelity_item.setFont(QFont("Montserrat", 9))
                 fidelity_item.setFlags(fidelity_item.flags() | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-                # Insérer ces items juste après "Analysis"
+                
                 self.insertItem(current_index + 1, candidate_item)
                 self.insertItem(current_index + 2, fidelity_item)
                 self.analysis_submenu.extend([candidate_item, fidelity_item])
 
-        # Si l'élément sélectionné fait partie du mapping, on émet le signal correspondant.
         if item_text in self.page_mapping:
             self.page_changed.emit(self.page_mapping[item_text])
 
-        # Gérer l'affichage des sous-menus de section (premier niveau)
         if item in self.section_items:
             section_name = item.text()
             for sec, sub_items in self.sub_items.items():

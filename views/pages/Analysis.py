@@ -52,7 +52,6 @@ class Analysis(QWidget):
         # Vérification des données de session
         session_data = self.main_app.session_data
         if session_data is None or session_data.empty:
-            print("No session data found. Please load or create session data first.")
             no_session_label = QLabel("No session data found. Please load or create session data first.")
             self.scroll_layout.addWidget(no_session_label)
             return
