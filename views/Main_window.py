@@ -79,7 +79,6 @@ class AnonymizationApp(QWidget):
         self.pages["generate"].data_generated_signal.connect(self.pages["confidentiality"].on_data_generated)
         self.pages["generate"].data_generated_signal.connect(self.pages["fidelity"].on_data_generated)
 
-
     def centerWindow(self):
         """Center the main window."""
         screen_geometry = QApplication.primaryScreen().availableGeometry()
@@ -94,6 +93,10 @@ class AnonymizationApp(QWidget):
         self.menu.setEnabled(True)
 
     def changePage(self, page_key: str):
+        if page_key == "refresh":
+            self.refresh_application()
+            return
+
         if page_key in ["display", "inspect"] and (
                 not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None):
             QMessageBox.warning(self, "File Not Downloaded", "Please download a file before accessing this page.")
@@ -101,6 +104,27 @@ class AnonymizationApp(QWidget):
 
         page_index = list(self.pages.keys()).index(page_key)
         self.stacked_widget.setCurrentIndex(page_index)
+
+    def refresh_application(self):
+        """Réinitialiser complètement l'application."""
+        # Réinitialiser les données de session
+        self.session_data = pd.DataFrame()
+
+        # Réinitialiser les pages
+        for page in self.pages.values():
+            if hasattr(page, 'reset'):
+                page.reset()
+
+        # Réinitialiser le menu
+        self.menu.show_initial_submenu("Source", "Open file")
+        self.menu.setCurrentRow(0)
+        self.stacked_widget.setCurrentIndex(0)
+
+        # Réinitialiser les données du bouton de téléchargement
+        self.download_button.reset()
+
+        # Réinitialiser les signaux
+        self.connect_signals()
 
     def resetMenuSelection(self, index):
         """Reset the menu selection when the page changes."""
