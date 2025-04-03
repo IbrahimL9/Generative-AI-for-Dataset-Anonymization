@@ -9,8 +9,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QSize
-from views.Styles import BUTTON_STYLE, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYLE, WARNING_MESSAGE_STYLE, \
-    INFO_MESSAGE_STYLE, BUTTON_STYLE2
+from views.Styles import BUTTON_STYLE, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STYLE, WARNING_MESSAGE_STYLE, INFO_MESSAGE_STYLE, BUTTON_STYLE2
+
 
 class Generate(QWidget):
     data_generated_signal = pyqtSignal()
@@ -25,10 +25,8 @@ class Generate(QWidget):
         self.generated_data = None
         self.session_data = pd.DataFrame()
 
-        # Pour forcer le même ID dans une session
         self.session_id_map = {}
         self.actor_id_map = {}
-        # Pour forcer le même Actor dans une session
         self.session_actor_map = {}
 
         self.initUI()
@@ -38,16 +36,15 @@ class Generate(QWidget):
         main_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         main_layout.addSpacing(20)
 
-        # Titre centré
         title = QLabel("Generate")
         title.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(title)
         main_layout.addSpacing(100)
 
-        # Form
         form_layout = QFormLayout()
         form_layout.setSpacing(10)
+
         txt = QLabel("Number of Data to Generate:")
         txt.setFont(QFont("Montserrat", 14))
         txt.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -66,15 +63,22 @@ class Generate(QWidget):
         """)
         form_layout.addRow(txt, self.records_input)
 
+        txt_users = QLabel("Number of Unique Actors (0 = default):")
+        txt_users.setFont(QFont("Montserrat", 14))
+        txt_users.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.users_input = QLineEdit("0")
+        self.users_input.setFixedWidth(200)
+        self.users_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.users_input.setStyleSheet(self.records_input.styleSheet())
+        form_layout.addRow(txt_users, self.users_input)
+
         form_container = QHBoxLayout()
         form_container.addStretch(1)
         form_container.addLayout(form_layout)
         form_container.addStretch(1)
         main_layout.addLayout(form_container)
-
         main_layout.addSpacing(40)
 
-        # Bouton Generate
         self.generate_button = QPushButton("Generate")
         self.generate_button.setStyleSheet(BUTTON_STYLE2)
         self.generate_button.setFixedSize(200, 150)
@@ -85,7 +89,6 @@ class Generate(QWidget):
 
         main_layout.addSpacing(200)
 
-        # Barre de progression
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedWidth(300)
         self.progress_bar.setRange(0, 0)
@@ -96,28 +99,23 @@ class Generate(QWidget):
         self.setWindowTitle("Generative AI for Dataset Anonymization")
 
     def load_session_data(self, data):
-        # Exemple de méthode pour charger des données dans la session
         self.session_data = data
         self.main_app.session_data = data
 
     def on_model_loaded(self, model):
-        """Appelé quand le modèle est chargé ou entraîné."""
         self.model = model
         self.model_loaded = True
         self.check_enable_generate_button()
 
     def on_file_loaded(self, json_data):
-        """Appelé quand un fichier JSON est chargé."""
         self.json_data = json_data
         self.check_enable_generate_button()
 
     def check_enable_generate_button(self):
-        """Active le bouton Generate si le modèle est prêt."""
         if self.model is not None and getattr(self.model, "fitted", False):
             self.generate_button.setEnabled(True)
 
     def generate_data(self):
-        """Cliqué sur 'Generate'."""
         if self.model is None or not getattr(self.model, "fitted", False):
             QMessageBox.warning(self, "Error", "Please train a model before generating data.")
             return
@@ -132,24 +130,32 @@ class Generate(QWidget):
         QTimer.singleShot(2000, lambda: self.finish_generation(num_records))
 
     def finish_generation(self, num_records):
-        """
-        Génère les données. Dans le cas "Sessions", TOUTES les actions
-        de la même session auront le même 'id' ET le même 'actor'.
-        """
         try:
             self.progress_bar.setVisible(False)
 
             if self.model:
-                # On sample num_records lignes
                 df = self.model.sample(num_records)
+                df["Actor"] = df["Actor"].astype(str)
 
-                # On nettoie les dictionnaires
-                self.session_id_map.clear()
-                self.session_actor_map.clear()
+                try:
+                    num_actors = int(self.users_input.text())
+                except ValueError:
+                    num_actors = 0
 
-                # Vérifie si "session_id" existe
+                if num_actors > 0:
+                    # Générer num_actors IDs uniques
+                    chosen_ids = [self.random_id(6) for _ in range(num_actors)]
+                    base_ids = chosen_ids[:]
+                    remaining = len(df) - len(base_ids)
+                    if remaining > 0:
+                        base_ids += random.choices(chosen_ids, k=remaining)
+                    random.shuffle(base_ids)
+                    df["Actor"] = base_ids
+
+                    # Mettre à jour le mapping pour que _build_action() réutilise ces IDs
+                    self.actor_id_map = {actor: actor for actor in set(df["Actor"])}
+
                 if "session_id" in df.columns:
-                    # => MODE SESSIONS
                     df_sessions = (
                         df.groupby("session_id")
                           .apply(lambda grp: self._build_session(grp))
@@ -157,51 +163,40 @@ class Generate(QWidget):
                     )
                     df_sessions.drop("session_id", axis=1, inplace=True)
                     self.generated_data = df_sessions
-
-                    # Mettre à jour session_data ici
                     self.main_app.session_data = df_sessions.copy()
-
                     self.show_message(f"{len(df_sessions)} generated sessions.")
                 else:
-                    # => MODE ACTIONS
                     actions = [self._build_action(row, session_id=None) for _, row in df.iterrows()]
                     self.generated_data = actions
-
-                    # Mettre à jour session_data ici
                     self.main_app.session_data = pd.DataFrame(actions)
-
                     self.show_message(f"{num_records} generated actions.")
 
-            self.data_generated = True
-            self.data_generated_signal.emit()
+                # Réinitialiser les mappings pour les sessions
+                self.session_id_map.clear()
+                self.session_actor_map.clear()
+                # Ne vider le mapping des acteurs que si on n'a pas forcé un nombre spécifique (0 = génération naturelle)
+                if int(self.users_input.text()) == 0:
+                    self.actor_id_map.clear()
+
+                self.data_generated = True
+                self.data_generated_signal.emit()
 
         except Exception as e:
             self.show_message(f"Error while generating : {str(e)}", message_type="error")
 
     def _build_session(self, grp):
-        """
-        Construit la liste d'actions pour UNE session,
-        en forçant le même 'id' pour la session
-        ET le même 'actor' pour toutes les sessions appartenant au même Actor réel.
-        """
-        session_id_value = grp["session_id"].iloc[0]  # ID de la session générée
-
-        # - 1) Récupère ou crée un ID unique pour TOUTES les actions de cette session
+        session_id_value = grp["session_id"].iloc[0]
         if session_id_value not in self.session_id_map:
             self.session_id_map[session_id_value] = self.random_id(6)
         same_id_for_session = self.session_id_map[session_id_value]
 
-        # - 2) Récupère l'Actor réel généré par le modèle
-        real_actor = grp["Actor"].iloc[0]  # ex: "bob", "alice", etc.
-
-        # - 3) Récupère ou crée un ID d'actor synthétique associé à cet Actor
+        real_actor = grp["Actor"].iloc[0]
         if real_actor not in self.actor_id_map:
             self.actor_id_map[real_actor] = self.random_id(6)
         same_actor_for_session = self.actor_id_map[real_actor]
 
         actions_list = []
         for _, row in grp.iterrows():
-            # Construit l'action avec ID de session et Actor cohérent
             action_dict = self._build_action(
                 row,
                 session_id=session_id_value,
@@ -212,22 +207,11 @@ class Generate(QWidget):
         return actions_list
 
     def _build_action(self, row, session_id=None, override_id=None, override_actor=None):
-        """
-        Construit un dictionnaire xAPI-like pour une action.
-        - override_id : si fourni, c'est l'ID qu'on va utiliser pour l'action
-        - override_actor : si fourni, c'est l'actor qu'on va utiliser
-        """
-        # ID d'action => soit override_id, soit un ID random
-        if override_id:
-            action_id = override_id
-        else:
-            action_id = self.random_id(6)
+        action_id = override_id if override_id else self.random_id(6)
 
-        # Actor => soit override_actor, soit un ID random
-        if override_actor:
-            actor_id = override_actor
-        else:
-            actor_id = self.random_id(6)
+        # Utiliser l'actor_id_map si dispo
+        raw_actor = str(row.get("Actor"))
+        actor_id = override_actor if override_actor else self.actor_id_map.get(raw_actor, self.random_id(6))
 
         return {
             "id": action_id,
@@ -245,12 +229,9 @@ class Generate(QWidget):
         }
 
     def random_id(self, length=6):
-        import string, random
         return ''.join(random.choices(string.digits, k=length))
 
     def to_iso8601_timestamp(self, value):
-        """Convertit value en 'YYYY-MM-DDTHH:MM:SS' ou renvoie str(value) si impossible."""
-        import pandas as pd
         try:
             dt = pd.to_datetime(value, errors='coerce')
             if pd.isnull(dt):
@@ -260,10 +241,6 @@ class Generate(QWidget):
             return str(value)
 
     def save_generated_data(self):
-        """
-        Si mode "Sessions", self.generated_data est un DataFrame avec col "actions" (list of dicts)
-        Sinon, c'est une liste de dicts.
-        """
         if not self.data_generated or not self.generated_data:
             QMessageBox.warning(self, "Error", "No data to save.")
             return
