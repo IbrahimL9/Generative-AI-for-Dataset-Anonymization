@@ -1,8 +1,6 @@
-# Menu.py
-from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QFrame, QSizePolicy, QVBoxLayout, QPushButton, QWidget
+from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QFrame, QSizePolicy, QVBoxLayout, QWidget
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import Qt, pyqtSignal
-
 
 class Menu(QListWidget):
     page_changed = pyqtSignal(str)
@@ -48,44 +46,6 @@ class Menu(QListWidget):
                     border: none;
                 }
                 """)
-        
-
-        # ✅ Ajouter le bouton Refresh en haut
-        refresh_widget = QWidget()
-        refresh_layout = QVBoxLayout(refresh_widget)
-
-        self.refresh_button = QPushButton("Refresh")
-        self.refresh_button.setFixedSize(180, 40)  # ✅ Assurer une bonne taille du bouton
-        self.refresh_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4059A8;
-                color: white;
-                border: 2px solid red; /* ✅ Bordure temporaire pour tester */
-                padding: 10px;
-                font-size: 16px;
-                font-weight: bold;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #35499B;
-            }
-        """)
-        self.refresh_button.clicked.connect(self.refresh_application)
-
-        refresh_layout.addWidget(self.refresh_button)
-        refresh_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        refresh_layout.setContentsMargins(10, 10, 10, 10)
-
-        refresh_widget.setFixedSize(200, 60)  # ✅ S'assurer que le widget parent n'est pas trop petit
-
-        refresh_item = QListWidgetItem(self)
-        refresh_item.setSizeHint(refresh_widget.sizeHint())  
-        self.addItem(refresh_item)
-        self.setItemWidget(refresh_item, refresh_widget)
-
-        print("Taille du refresh_widget:", refresh_widget.sizeHint())  
-        print("Taille du refresh_button:", self.refresh_button.sizeHint())  
-        print("Texte du bouton:", self.refresh_button.text())  # ✅ Vérifier si le texte est bien défini
 
         # Mise à jour du mapping avec les nouvelles pages
         self.page_mapping = {
@@ -131,7 +91,6 @@ class Menu(QListWidget):
                 self.sub_items[section].append(sub_item_widget)
                 self.addItem(sub_item_widget)
 
-
         self.addSpacingItem()
         about_item = QListWidgetItem("About")
         about_item.setFont(QFont("Montserrat", 14, QFont.Weight.Bold))
@@ -151,16 +110,10 @@ class Menu(QListWidget):
             spacing_item.setData(Qt.ItemDataRole.UserRole, "spacer")
             self.addItem(spacing_item)
 
-    
-    def refresh_application(self):
-            self.page_changed.emit("refresh")
-
     def on_page_changed(self, index):
         item = self.item(index)
-        # Récupérer le texte sans indentation ni puce
         item_text = item.text().strip().replace("• ", "")
 
-        # Si un élément de sous-menu "Analysis" est déjà présent et que l'utilisateur sélectionne un autre item qui n'est pas ces sous-menus, on les retire.
         if item_text not in ["Analysis", "Confidentiality", "Fidelity"]:
             if self.analysis_submenu:
                 for sub in self.analysis_submenu:
@@ -168,7 +121,6 @@ class Menu(QListWidget):
                     self.takeItem(row)
                 self.analysis_submenu = []
 
-        # Si l'utilisateur sélectionne "Analysis", on insère les sous-sous-menus si non déjà présents.
         if item_text == "Analysis":
             if not self.analysis_submenu:
                 current_index = self.currentRow()
@@ -179,16 +131,13 @@ class Menu(QListWidget):
                 fidelity_item = QListWidgetItem("              • Fidelity")
                 fidelity_item.setFont(QFont("Montserrat", 9))
                 fidelity_item.setFlags(fidelity_item.flags() | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-                # Insérer ces items juste après "Analysis"
                 self.insertItem(current_index + 1, candidate_item)
                 self.insertItem(current_index + 2, fidelity_item)
                 self.analysis_submenu.extend([candidate_item, fidelity_item])
 
-        # Si l'élément sélectionné fait partie du mapping, on émet le signal correspondant.
         if item_text in self.page_mapping:
             self.page_changed.emit(self.page_mapping[item_text])
 
-        # Gérer l'affichage des sous-menus de section (premier niveau)
         if item in self.section_items:
             section_name = item.text()
             for sec, sub_items in self.sub_items.items():
