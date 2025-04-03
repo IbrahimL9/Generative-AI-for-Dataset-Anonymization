@@ -1,7 +1,8 @@
 from PyQt6.QtWidgets import (
-    QWidget, QHBoxLayout, QStackedWidget, QApplication, QMessageBox, QVBoxLayout, QPushButton, QLabel
+    QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget, QApplication, QMessageBox, QPushButton
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtGui import QIcon
 from .Menu import Menu
 from views.pages.Open import Open
 from views.pages.Display import Display
@@ -17,7 +18,6 @@ from views.pages.Fidelity import Fidelity
 from views.pages.Confidentiality import Confidentiality
 import pandas as pd
 
-
 class AnonymizationApp(QWidget):
     def __init__(self):
         super().__init__()
@@ -29,60 +29,56 @@ class AnonymizationApp(QWidget):
         self.centerWindow()
         self.setStyleSheet("background-color: white;")
 
-        # Le layout principal
-        main_layout = QVBoxLayout()
+        # -- Layout principal horizontal (inchangé) --
+        main_layout = QHBoxLayout()
+        main_layout.setContentsMargins(0, 0, 10, 0)
+        main_layout.setSpacing(40)
 
-        # Crée une barre de titre vide juste pour la hauteur de la fenêtre
-        title_layout = QHBoxLayout()
-
-        # Le bouton Refresh
-        self.refresh_button = QPushButton("Refresh")
-        self.refresh_button.setMinimumWidth(100)  # Définit une largeur minimale pour le bouton
-        self.refresh_button.setMaximumWidth(100)  # Définit une largeur maximale pour le bouton
-        self.refresh_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4059A8;
-                color: white;
-                border: 2px solid red;
-                padding: 5px;
-                font-size: 12px;
-                font-weight: bold;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #35499B;
-            }
-        """)
-        self.refresh_button.clicked.connect(self.refresh_application)
-
-        # Ajouter le bouton Refresh au layout de la barre de titre (aligné à droite)
-        title_layout.addWidget(self.refresh_button, alignment=Qt.AlignmentFlag.AlignRight)
-
-        # Ajouter la barre de titre à la fenêtre
-        self.title_bar_widget = QWidget(self)
-        self.title_bar_widget.setLayout(title_layout)
-        self.title_bar_widget.setFixedHeight(40)  # Hauteur de la barre de titre
-
-        # Ajouter la barre de titre en haut du layout principal
-        main_layout.addWidget(self.title_bar_widget)
-
-        # Layout pour le contenu (le menu et les pages)
-        content_layout = QHBoxLayout()
-        content_layout.setContentsMargins(0, 0, 10, 0)
-        content_layout.setSpacing(40)
-
+        # -- Menu à gauche (inchangé) --
         self.menu = Menu()
-        content_layout.addWidget(self.menu)
+        main_layout.addWidget(self.menu)
 
+        # -- Bouton Download (inchangé) --
         self.download_button = DownloadButton('Download File')
         self.download_button.file_loaded.connect(self.enableMenu)
 
-        self.stacked_widget = QStackedWidget()
-        content_layout.addWidget(self.stacked_widget)
+        # -- Layout vertical pour la zone de droite --
+        right_layout = QVBoxLayout()
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(10)
 
+        # -- StackedWidget (inchangé) --
+        self.stacked_widget = QStackedWidget()
+        right_layout.addWidget(self.stacked_widget)
+
+        # -- Un stretch pour pousser le bouton refresh en bas --
+        right_layout.addStretch(1)
+
+        # -- Bouton Refresh en bas à droite --
+        self.refresh_button = QPushButton("")
+        # Assurez-vous que le chemin vers l'icône est correct
+        self.refresh_button.setIcon(QIcon("images/reset.png"))
+        self.refresh_button.setIconSize(QSize(40, 40))
+        self.refresh_button.setFixedSize(60, 60)
+        self.refresh_button.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+            }
+            QPushButton:hover {
+                background-color: rgba(0, 0, 0, 0.1);
+            }
+        """)
+        self.refresh_button.clicked.connect(self.refresh_application)
+        right_layout.addWidget(self.refresh_button, alignment=Qt.AlignmentFlag.AlignRight)
+
+        # -- On ajoute le layout vertical à la droite du main_layout --
+        main_layout.addLayout(right_layout)
+
+        # -- Instanciation de la classe Tools (inchangé) --
         self.tools = Tools()
 
-        # Définition des pages
+        # -- Définition des pages (inchangé) --
         self.pages = {
             "open": Open(self.download_button),
             "display": Display(self.download_button, self),
@@ -97,19 +93,15 @@ class AnonymizationApp(QWidget):
             "confidentiality": Confidentiality(self)
         }
 
-        # Ajouter les pages au QStackedWidget
+        # -- Ajout des pages au StackedWidget (inchangé) --
         for page in self.pages.values():
             self.stacked_widget.addWidget(page)
 
         self.menu.page_changed.connect(self.changePage)
         self.stacked_widget.setCurrentIndex(0)
 
-        # Ajouter le layout du contenu dans le layout principal
-        main_layout.addLayout(content_layout)
-
-        # Appliquer le layout principal à la fenêtre
+        # -- On applique le layout principal à la fenêtre --
         self.setLayout(main_layout)
-
         self.connect_signals()
 
     def connect_signals(self):
@@ -121,6 +113,7 @@ class AnonymizationApp(QWidget):
         self.pages["generate"].data_generated_signal.connect(self.pages["fidelity"].on_data_generated)
 
     def centerWindow(self):
+        """Centre la fenêtre principale."""
         screen_geometry = QApplication.primaryScreen().availableGeometry()
         window_width, window_height = 1000, 700
         x = (screen_geometry.width() - window_width) // 2
@@ -128,47 +121,40 @@ class AnonymizationApp(QWidget):
         self.setGeometry(x, y, window_width, window_height)
 
     def enableMenu(self):
+        """Active le menu une fois le fichier chargé."""
         print("Menu enabled")
         self.menu.setEnabled(True)
 
     def changePage(self, page_key: str):
-        if page_key == "refresh":
-            self.refresh_application()
-            return
-
         if page_key in ["display", "inspect"] and (
-                not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None):
+            not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None
+        ):
             QMessageBox.warning(self, "File Not Downloaded", "Please download a file before accessing this page.")
             return
-
         page_index = list(self.pages.keys()).index(page_key)
         self.stacked_widget.setCurrentIndex(page_index)
 
     def refresh_application(self):
         """Réinitialiser complètement l'application."""
         self.session_data = pd.DataFrame()
-
-        # Réinitialiser les pages
         for page in self.pages.values():
             if hasattr(page, 'reset'):
-                page.reset()  # Appelle la méthode reset de chaque page
-
-        # Réinitialiser le menu
+                page.reset()
         self.menu.show_initial_submenu("Source", "Open file")
         self.menu.setCurrentRow(0)
         self.stacked_widget.setCurrentIndex(0)
-
-        # Réinitialiser les données du bouton de téléchargement
         self.download_button.reset()
-
-        # Réinitialiser les signaux
         self.connect_signals()
 
     def resetMenuSelection(self, index):
+        """Réinitialise la sélection du menu lors du changement de page."""
         self.menu.blockSignals(True)
         self.menu.setCurrentRow(index)
         self.menu.blockSignals(False)
         self.stacked_widget.setCurrentIndex(index)
 
     def get_open_page(self):
+        """Retourne la page 'Open'."""
         return self.pages["open"]
+
+
