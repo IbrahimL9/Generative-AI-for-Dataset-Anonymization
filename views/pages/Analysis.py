@@ -163,9 +163,6 @@ class Analysis(QWidget):
         else:
             return pd.DataFrame()
 
-
-
-
     def validate_dataframe(self, df):
         """
         Vérifie si le DataFrame a la structure attendue.
@@ -191,7 +188,10 @@ class Analysis(QWidget):
             sample = df['timestamp'].iloc[0] if not df['timestamp'].empty else None
             if sample is not None and isinstance(sample, str):
                 if "-" in sample or ":" in sample:
-                    timestamps = pd.to_datetime(df['timestamp'], format="%Y-%m-%d %H:%M:%S", errors='coerce').dropna()
+                    #timestamps = pd.to_datetime(df['timestamp'], format="%Y-%m-%d %H:%M:%S", errors='coerce').dropna()
+                    timestamps = pd.to_datetime(df['timestamp'], errors='coerce').dropna()
+
+                
                 elif sample.isdigit():
                     timestamps = pd.to_datetime(pd.to_numeric(df['timestamp']), unit='s', errors='coerce').dropna()
                 else:
@@ -225,6 +225,12 @@ class Analysis(QWidget):
         else:
             avg_duration_per_verb = {}
 
+
+        if 'Duration' in df.columns:
+            durations_per_verbe = df.groupby('verb_name')['Duration'].apply(list)
+            avg_duration_per_verbe = {v: mean(d) for v, d in durations_per_verbe.items() if d}
+        else:
+            avg_duration_per_verbe = {}
         # Création des figures Plotly
         fig_list = []
         title_prefix = f"[{dataset_title}] "
@@ -235,10 +241,17 @@ class Analysis(QWidget):
         fig_list.append(self.create_histogram(avg_events, min_events, max_events, title_prefix + "Events per Actor"))
         fig_list.append(self.create_statistics_bar_chart(avg_events, std_events, title_prefix + "Avg & Std Dev"))
 
+        # Ajout du graphique "Average Duration per Verb"
         if avg_duration_per_verb:
             fig_list.append(self.create_bar_chart(
-                avg_duration_per_verb, title_prefix + "Average Duration per Verb", y_axis="Avg Duration (s)"
+                avg_duration_per_verb, title_prefix + "Average duration per Verb", y_axis="Avg duration (s)"
             ))
+
+        if avg_duration_per_verbe:
+            fig_list.append(self.create_bar_chart(
+                avg_duration_per_verbe, title_prefix + "Average Duration per Verb", y_axis="Avg Duration (s)"
+            ))
+
 
         if actor_counts:
             fig_list.append(self.create_actor_pie_chart(actor_counts, title_prefix + "Actor Distribution"))
@@ -278,13 +291,16 @@ class Analysis(QWidget):
         labels = list(data.keys())
         values = [data[label] for label in labels]
         colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
+        # Assigner une couleur fixe à chaque verbe
+        color_map = {label: colors[i % len(colors)] for i, label in enumerate(sorted(set(labels)))}
         fig = px.bar(
             x=labels, y=values,
             labels={"x": "Category", "y": y_axis},
             title=title,
-            width=800, height=400
+            width=800, height=400,
+            color=labels,
+            color_discrete_map=color_map
         )
-        fig.update_traces(marker_color=colors[:len(labels)])
         fig.update_layout(showlegend=False)
         return fig
 
@@ -346,7 +362,6 @@ class Analysis(QWidget):
         fig.update_traces(marker=dict(colors=colors[:len(labels)]))
         return fig
 
-
     def clear_layout(self, layout):
         """Supprimer tous les widgets d'un layout donné."""
         if layout is not None:
@@ -354,8 +369,6 @@ class Analysis(QWidget):
                 child = layout.takeAt(0)
                 if child.widget():
                     child.widget().deleteLater()
-
-
 
     def create_object_pie_chart(self, object_counts, title):
         labels = list(object_counts.keys())

@@ -12,8 +12,9 @@ from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
 from sdv.single_table import CTGANSynthesizer
 from sdv.metadata import SingleTableMetadata
-from sdmetrics.single_column import KSComplement
+from sdmetrics.single_column import KSComplement, TVComplement
 import matplotlib.pyplot as plt
+
 # Fonction d'encodage des catégories en nombres
 def encode_categorical(df, columns):
     encoders = {}
@@ -34,12 +35,19 @@ class Fidelity(QWidget):
     def initUI(self):
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Analyse de Fidélité"))
+
         self.ksc_button = QPushButton("Calculer le KS Complement")
         self.ksc_button.clicked.connect(self.calculate_ksc)
         layout.addWidget(self.ksc_button)
+
+        self.tvc_button = QPushButton("Calculer le TV Complement")
+        self.tvc_button.clicked.connect(self.calculate_tvc)
+        layout.addWidget(self.tvc_button)
+
         self.results_text = QPlainTextEdit()
         self.results_text.setReadOnly(True)
         layout.addWidget(self.results_text)
+
         self.setLayout(layout)
 
     def on_data_generated(self):
@@ -74,7 +82,6 @@ class Fidelity(QWidget):
     def flatten_synthetic_data(self, synthetic_data):
         """Aplatir les données synthétiques pour correspondre à la structure de original_data."""
         if 'actions' in synthetic_data.columns:
-            # Extraire les informations pertinentes de 'actions'
             flattened_data = []
             for actions in synthetic_data['actions']:
                 for action in actions:
@@ -117,6 +124,34 @@ class Fidelity(QWidget):
         if ksc_scores:
             self.plot_ksc_scores(ksc_scores)
 
+    def calculate_tvc(self):
+        df = self.original_data
+        synthetic_data = self.flatten_synthetic_data(self.synthetic_data)
+
+        if df.empty or synthetic_data.empty:
+            self.results_text.appendPlainText("Erreur : Données non disponibles.")
+            return
+
+        categorical_columns = ['actor', 'verb', 'object']
+        tvc_scores = {}
+
+        df = self.convert_column_types(df, categorical_columns)
+        synthetic_data = self.convert_column_types(synthetic_data, categorical_columns)
+
+        df, _ = encode_categorical(df, categorical_columns)
+        synthetic_data, _ = encode_categorical(synthetic_data, categorical_columns)
+
+        for column in categorical_columns:
+            if column in df.columns and column in synthetic_data.columns:
+                tvc_score = TVComplement.compute(real_data=df[column], synthetic_data=synthetic_data[column])
+                tvc_scores[column] = tvc_score
+                self.results_text.appendPlainText(f"TV Complement Score pour {column} : {tvc_score:.4f}")
+            else:
+                self.results_text.appendPlainText(f"Colonne '{column}' manquante dans les données.")
+
+        if tvc_scores:
+            self.plot_tvc_scores(tvc_scores)
+
     def plot_ksc_scores(self, ksc_scores):
         columns = list(ksc_scores.keys())
         scores = list(ksc_scores.values())
@@ -134,3 +169,19 @@ class Fidelity(QWidget):
 
         plt.show()
 
+    def plot_tvc_scores(self, tvc_scores):
+        columns = list(tvc_scores.keys())
+        scores = list(tvc_scores.values())
+
+        plt.figure(figsize=(10, 6))
+        bars = plt.bar(columns, scores, color='lightcoral')
+        plt.title("Scores TV Complement")
+        plt.xlabel("Colonnes")
+        plt.ylabel("Score TV Complement")
+        plt.ylim(0, 1)
+
+        for bar in bars:
+            yval = bar.get_height()
+            plt.text(bar.get_x() + bar.get_width() / 2.0, yval, round(yval, 4), va='bottom')
+
+        plt.show()
