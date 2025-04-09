@@ -16,21 +16,23 @@ class Inspect(QWidget):
         super().__init__()
         self.download_button = download_button
         self.main_app = main_app
+        self.web_view = None  # Pour conserver le QWebEngineView existant
         self.initUI()
 
-        # Facultatif : si on veut regénérer les stats
-        # à chaque fois que l'utilisateur charge un nouveau fichier :
+        # Optionnel : regénérer les statistiques à chaque fois qu'un fichier est chargé.
         self.download_button.file_loaded.connect(self.updateStatistics)
 
     def initUI(self):
         layout = QVBoxLayout()
         layout.addSpacing(20)
 
+        # Titre
         title = QLabel("STATISTICS")
         title.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
 
+        # Zone de défilement pour afficher le rapport HTML
         self.scroll_widget = QWidget()
         self.scroll_layout = QVBoxLayout(self.scroll_widget)
 
@@ -46,62 +48,54 @@ class Inspect(QWidget):
     def updateStatistics(self):
         """
         1) Tente de lire le DataFrame dans main_app.processed_dataframe.
-        2) S’il n’existe pas ou est vide, on le crée via self.download_button.json_data.
-        3) Puis on génère les stats et les graphiques.
+        2) S'il n'existe pas ou est vide, on le crée à partir de download_button.json_data.
+        3) Puis on génère les statistiques et graphiques.
         """
         df = getattr(self.main_app, 'processed_dataframe', None)
 
-        # Si le DF n’existe pas ou est vide, on le construit
+        # Créer le DataFrame si nécessaire
         if df is None or df.empty:
-            # Récupère les données JSON
             data = self.download_button.json_data
             if not data:
                 print("❌ Aucune donnée JSON chargée. Veuillez charger un fichier.")
                 return
 
-            # Aplatir la liste si c'est une liste de listes
+            # Si data est une liste de listes, on l'aplatit
             events = sum(data, []) if isinstance(data[0], list) else data
 
-            # On calcule la durée
+            # Calculer la durée entre événements
             events = self.convert_to_duration(events)
 
-            # On construit le DataFrame
+            # Construire le DataFrame et le stocker dans main_app
             df = pd.DataFrame(events)
-            # On le stocke dans main_app pour réutilisation ultérieure
             self.main_app.processed_dataframe = df
 
         if df.empty:
             print("❌ Le DataFrame est vide (0 lignes).")
             return
 
-        # Nettoie l'affichage avant de recréer les widgets
+        # Nettoyer l'affichage avant de recréer les widgets
         self.clearStatistics()
 
         print(f"Nombre total d'événements : {len(df)}")
 
-        # --- Extraction des noms (verb_name, actor_name, object_name) ---
+        # Extraction des noms
         if 'verb' in df.columns:
-            df['verb_name'] = df['verb'].apply(
-                lambda v: self.extract_name(v.get('id', 'Unknown')) if isinstance(v, dict) else str(v)
-            )
+            df['verb_name'] = df['verb'].apply(lambda v: self.extract_name(v.get('id', 'Unknown')) if isinstance(v, dict) else str(v))
         else:
             df['verb_name'] = "Unknown"
 
         if 'actor' in df.columns:
-            df['actor_name'] = df['actor'].apply(
-                lambda a: self.extract_name(a.get('mbox', 'Unknown')) if isinstance(a, dict) else str(a)
-            )
+            df['actor_name'] = df['actor'].apply(lambda a: self.extract_name(a.get('mbox', 'Unknown')) if isinstance(a, dict) else str(a))
         else:
             df['actor_name'] = "Unknown"
 
         if 'object' in df.columns:
-            df['object_name'] = df['object'].apply(
-                lambda o: self.extract_name(o.get('id', 'Unknown')) if isinstance(o, dict) else str(o)
-            )
+            df['object_name'] = df['object'].apply(lambda o: self.extract_name(o.get('id', 'Unknown')) if isinstance(o, dict) else str(o))
         else:
             df['object_name'] = "Unknown"
 
-        # --- Timestamps ---
+        # Gestion des timestamps
         timestamps = pd.to_datetime(df.get('timestamp'), errors='coerce').dropna()
         if not timestamps.empty:
             first_event = timestamps.min().strftime("%Y-%m-%d %H:%M:%S")
@@ -109,12 +103,12 @@ class Inspect(QWidget):
         else:
             first_event = last_event = "N/A"
 
-        # --- Statistiques ---
+        # Statistiques
         verb_counts = Counter(df['verb_name'])
         object_counts = dict(Counter(df['object_name']).most_common(6))
         actor_counts = Counter(df['actor_name'])
 
-        if len(actor_counts) > 0:
+        if actor_counts:
             avg_events = mean(actor_counts.values())
             std_events = stdev(actor_counts.values()) if len(actor_counts) > 1 else 0
             min_events = min(actor_counts.values())
@@ -122,14 +116,14 @@ class Inspect(QWidget):
         else:
             avg_events = std_events = min_events = max_events = 0
 
-        # Durées par verbe
+        # Durée moyenne par verbe
         if 'Duration' in df.columns:
             durations_per_verb = df.groupby('verb_name')['Duration'].apply(list)
             avg_duration_per_verb = {v: mean(d) for v, d in durations_per_verb.items() if d}
         else:
             avg_duration_per_verb = {}
 
-        # Générer un rapport HTML
+        # Génération du rapport HTML
         self.create_html_report(
             verb_counts,
             object_counts,
@@ -142,13 +136,14 @@ class Inspect(QWidget):
         self.display_html_report()
 
     def clearStatistics(self):
+        """Supprime tous les widgets de la zone de scroll."""
         for i in reversed(range(self.scroll_layout.count())):
             widget = self.scroll_layout.itemAt(i).widget()
             if widget:
                 widget.deleteLater()
 
     def extract_name(self, value):
-        """Extrait un nom lisible depuis un mailto: ou une URL, sinon renvoie la valeur brute."""
+        """Extrait un nom lisible depuis un mailto: ou une URL, sinon retourne la valeur brute."""
         if isinstance(value, str):
             if value.startswith("mailto:"):
                 return value.replace("mailto:", "")
@@ -158,11 +153,8 @@ class Inspect(QWidget):
 
     def convert_to_duration(self, events):
         """
-        Identique à la logique de Display :
-         - Convertit en DataFrame
-         - Trie par (actor, timestamp)
-         - Calcule la différence de temps successif
-         - Réinjecte la Duration dans la liste events
+        Convertit le timestamp en datetime, trie les événements par acteur et timestamp,
+        calcule la durée entre événements successifs et réinjecte cette durée dans les événements.
         """
         if not events:
             return events
@@ -171,73 +163,54 @@ class Inspect(QWidget):
         if 'timestamp' not in df.columns:
             return events
 
-        # Convertir la colonne 'timestamp'
         df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-
-        # Extraire le nom d'acteur pour grouper
-        df['actor_name'] = df['actor'].apply(
-            lambda a: self.extract_name(a.get('mbox', '')) if isinstance(a, dict) else str(a)
-        )
-
-        # Tri par (actor_name, timestamp)
+        df['actor_name'] = df['actor'].apply(lambda a: self.extract_name(a.get('mbox', '')) if isinstance(a, dict) else str(a))
         df = df.sort_values(by=['actor_name', 'timestamp'])
+        df['Duration'] = df.groupby('actor_name')['timestamp'].diff().dt.total_seconds().fillna(0)
 
-        # Calcul de la durée
-        df['Duration'] = (
-            df.groupby('actor_name')['timestamp']
-                .diff()
-                .dt.total_seconds()
-                .fillna(0)
-        )
-
-        # On réinjecte la valeur dans la liste events
         for idx, dur in zip(df.index, df['Duration']):
             events[idx]['Duration'] = float(dur)
 
         return events
 
-    # --- Génération du rapport HTML (Plotly) ---
+    # --- Génération et affichage du rapport HTML via Plotly ---
     def create_html_report(self, verb_counts, object_counts,
                            first_event, last_event,
                            avg_events, min_events, max_events,
                            avg_value, std_value,
                            actor_counts=None, avg_duration_per_verb=None):
-
         fig_list = []
-        # Principaux graphiques
+        # Graphiques principaux
         fig_list.append(self.create_bar_chart(verb_counts, "Most Used Verbs"))
         fig_list.append(self.create_object_pie_chart(object_counts))
         fig_list.append(self.create_event_time_chart(first_event, last_event))
         fig_list.append(self.create_histogram(avg_events, min_events, max_events, "Events per Actor"))
         fig_list.append(self.create_statistics_bar_chart(avg_value, std_value))
-
-        # Durées par verbe
+        # Graphiques additionnels
         if avg_duration_per_verb:
-            fig_list.append(
-                self.create_bar_chart(avg_duration_per_verb, "Average Duration per Verb", y_axis="Avg Duration (s)"))
-
-        # Distribution des acteurs
+            fig_list.append(self.create_bar_chart(avg_duration_per_verb, "Average Duration per Verb", y_axis="Avg Duration (s)"))
         if actor_counts:
             fig_list.append(self.create_actor_pie_chart(actor_counts))
-
-        # On assemble toutes les figures dans un seul fichier HTML
         html_content = "".join([pio.to_html(fig, full_html=False) for fig in fig_list])
         html_file_path = "all_charts_report.html"
         with open(html_file_path, "w", encoding="utf-8") as f:
             f.write(html_content)
 
     def display_html_report(self):
-        web_view = QWebEngineView()
-        web_view.setUrl(QUrl.fromLocalFile(os.path.abspath("all_charts_report.html")))
-        self.scroll_layout.addWidget(web_view)
+        """Affiche le rapport HTML dans un QWebEngineView. On conserve le widget pour éviter une recréation complète."""
+        from PyQt6.QtWebEngineWidgets import QWebEngineView
+        report_url = QUrl.fromLocalFile(os.path.abspath("all_charts_report.html"))
+        if hasattr(self, 'web_view') and self.web_view is not None:
+            self.web_view.setUrl(report_url)
+        else:
+            self.web_view = QWebEngineView()
+            self.web_view.setUrl(report_url)
+            self.scroll_layout.addWidget(self.web_view)
 
     # --- Fonctions de création de graphiques Plotly ---
-
     def create_bar_chart(self, data, title, y_axis="Count"):
-        """Bar chart, avec une liste de couleurs attribuées aux barres."""
         labels = list(data.keys())
         values = [data[label] for label in labels]
-
         fig = px.bar(
             x=labels,
             y=values,
@@ -246,18 +219,14 @@ class Inspect(QWidget):
             width=1000,
             height=500
         )
-        # Palette de couleurs
         colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
-        # On assigne autant de couleurs qu’il y a d’éléments
         fig.update_traces(marker_color=colors[:len(labels)])
         fig.update_layout(showlegend=False)
         return fig
 
     def create_histogram(self, avg_value, min_value, max_value, title):
-        """Histogramme (3 barres : Average, Min, Max)."""
         labels = ["Average", "Min", "Max"]
         values = [avg_value, min_value, max_value]
-
         fig = px.bar(
             x=labels,
             y=values,
@@ -266,17 +235,14 @@ class Inspect(QWidget):
             width=1000,
             height=500
         )
-        # Palette pour 3 barres
         colors = ['#636EFA', '#EF553B', '#00CC96']
         fig.update_traces(marker_color=colors[:len(labels)])
         fig.update_layout(showlegend=False)
         return fig
 
     def create_event_time_chart(self, first_event, last_event):
-        """Bar chart avec 2 barres ('First Event', 'Last Event')."""
         labels = ["First Event", "Last Event"]
         values = [1, 1]
-
         fig = px.bar(
             x=labels,
             y=values,
@@ -286,17 +252,14 @@ class Inspect(QWidget):
             width=1000,
             height=500
         )
-        # Deux couleurs possibles
         colors = ['#636EFA', '#EF553B']
         fig.update_traces(marker_color=colors[:len(labels)], textposition="outside")
         fig.update_layout(showlegend=False)
         return fig
 
     def create_statistics_bar_chart(self, avg_value, std_value):
-        """Deux barres : 'Average' et 'Std Dev'."""
         labels = ["Average", "Std Dev"]
         values = [avg_value, std_value]
-
         fig = px.bar(
             x=labels,
             y=values,
@@ -305,17 +268,14 @@ class Inspect(QWidget):
             width=1000,
             height=500
         )
-        # Deux couleurs
         colors = ['#636EFA', '#EF553B']
         fig.update_traces(marker_color=colors[:len(labels)])
         fig.update_layout(showlegend=False)
         return fig
 
     def create_actor_pie_chart(self, actor_counts):
-        """Pie chart pour la distribution d'acteurs."""
         labels = list(actor_counts.keys())
         sizes = list(actor_counts.values())
-
         fig = px.pie(
             names=labels,
             values=sizes,
@@ -323,16 +283,13 @@ class Inspect(QWidget):
             width=1000,
             height=500
         )
-        # On applique des couleurs
         colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
         fig.update_traces(marker_colors=colors[:len(labels)])
         return fig
 
     def create_object_pie_chart(self, object_counts):
-        """Pie chart pour la distribution d'objets."""
         labels = list(object_counts.keys())
         sizes = list(object_counts.values())
-
         fig = px.pie(
             names=labels,
             values=sizes,
@@ -340,7 +297,6 @@ class Inspect(QWidget):
             width=1000,
             height=500
         )
-        # On applique des couleurs
         colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
         fig.update_traces(marker_colors=colors[:len(labels)])
         return fig
