@@ -1,17 +1,14 @@
-import time
 import pandas as pd
 import seaborn as sns
 import numpy as np
-from scipy.stats import ks_2samp
+from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt
 from sklearn.preprocessing import LabelEncoder
 from PyQt6.QtWidgets import (
-    QWidget, QLabel, QVBoxLayout, QPushButton, QFileDialog, QDialog, QPlainTextEdit, QApplication, QSpacerItem,
+    QWidget, QLabel, QVBoxLayout, QPushButton, QPlainTextEdit, QApplication, QSpacerItem,
     QSizePolicy, QHBoxLayout, QComboBox
 )
-from PyQt6.QtGui import QFont, QIcon
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
-from sdv.single_table import CTGANSynthesizer
-from sdv.metadata import SingleTableMetadata
+
 from sdmetrics.single_column import KSComplement, TVComplement
 import matplotlib.pyplot as plt
 
@@ -34,8 +31,14 @@ class Fidelity(QWidget):
 
     def initUI(self):
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Fidelity Analysis"))
+        layout.addSpacing(30)
 
+        title = QLabel("Fidelity Analysis")
+        title.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+
+        layout.addSpacing(50)
         self.ksc_button = QPushButton("Compute the KS Complement")
         self.ksc_button.clicked.connect(self.calculate_ksc)
         layout.addWidget(self.ksc_button)

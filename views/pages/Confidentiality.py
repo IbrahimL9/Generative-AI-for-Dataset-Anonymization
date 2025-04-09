@@ -25,7 +25,7 @@ class Confidentiality(QWidget):
         layout = QVBoxLayout()
         layout.addSpacing(30)
 
-        title = QLabel("Analysis")
+        title = QLabel("Confidentiality Analysis")
         title.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
