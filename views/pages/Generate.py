@@ -142,8 +142,8 @@ class Generate(QWidget):
                 except ValueError:
                     num_actors = 0
 
+                # generation des actors rand
                 if num_actors > 0:
-                    # Générer num_actors IDs uniques
                     chosen_ids = [self.random_id(6) for _ in range(num_actors)]
                     base_ids = chosen_ids[:]
                     remaining = len(df) - len(base_ids)
@@ -152,7 +152,6 @@ class Generate(QWidget):
                     random.shuffle(base_ids)
                     df["Actor"] = base_ids
 
-                    # Mettre à jour le mapping pour que _build_action() réutilise ces IDs
                     self.actor_id_map = {actor: actor for actor in set(df["Actor"])}
 
                 if "session_id" in df.columns:
@@ -171,7 +170,7 @@ class Generate(QWidget):
                     self.main_app.session_data = pd.DataFrame(actions)
                     self.show_message(f"{num_records} generated actions.")
 
-                # Réinitialiser les mappings pour les sessions
+                # Reinitialiser les mappings pour les sessions
                 self.session_id_map.clear()
                 self.session_actor_map.clear()
                 # Ne vider le mapping des acteurs que si on n'a pas forcé un nombre spécifique (0 = génération naturelle)

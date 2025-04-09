@@ -29,16 +29,16 @@ class AnonymizationApp(QWidget):
         self.centerWindow()
         self.setStyleSheet("background-color: white;")
 
-        # -- Layout principal horizontal (inchangé) --
+        # -- Layout principal horizontal --
         main_layout = QHBoxLayout()
         main_layout.setContentsMargins(0, 0, 10, 0)
         main_layout.setSpacing(40)
 
-        # -- Menu à gauche (inchangé) --
+        # -- Menu à gauche --
         self.menu = Menu()
         main_layout.addWidget(self.menu)
 
-        # -- Bouton Download (inchangé) --
+        # -- Bouton Download --
         self.download_button = DownloadButton('Download File')
         self.download_button.file_loaded.connect(self.enableMenu)
 
@@ -46,20 +46,19 @@ class AnonymizationApp(QWidget):
         right_layout = QVBoxLayout()
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(10)
+        # On force l'alignement vers le haut
+        right_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # -- StackedWidget (inchangé) --
+        # -- StackedWidget --
         self.stacked_widget = QStackedWidget()
         right_layout.addWidget(self.stacked_widget)
 
-        # -- Un stretch pour pousser le bouton refresh en bas --
-        right_layout.addStretch(1)
-
-        # -- Bouton Refresh en bas à droite --
+        # -- Bouton Refresh placé immédiatement sous le StackedWidget --
         self.refresh_button = QPushButton("")
-        # Assurez-vous que le chemin vers l'icône est correct
-        self.refresh_button.setIcon(QIcon("images/reset.png"))
+        self.refresh_button.setIcon(QIcon("images/reset.png"))  # Vérifiez que le chemin vers l'icône est correct
         self.refresh_button.setIconSize(QSize(40, 40))
         self.refresh_button.setFixedSize(60, 60)
+        self.refresh_button.setVisible(False)
         self.refresh_button.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
@@ -72,13 +71,13 @@ class AnonymizationApp(QWidget):
         self.refresh_button.clicked.connect(self.refresh_application)
         right_layout.addWidget(self.refresh_button, alignment=Qt.AlignmentFlag.AlignRight)
 
-        # -- On ajoute le layout vertical à la droite du main_layout --
+        # -- Ajout du layout vertical à la droite du main_layout --
         main_layout.addLayout(right_layout)
 
-        # -- Instanciation de la classe Tools (inchangé) --
+        # -- Instanciation de la classe Tools --
         self.tools = Tools()
 
-        # -- Définition des pages (inchangé) --
+        # -- Définition des pages --
         self.pages = {
             "open": Open(self.download_button),
             "display": Display(self.download_button, self),
@@ -93,14 +92,14 @@ class AnonymizationApp(QWidget):
             "confidentiality": Confidentiality(self)
         }
 
-        # -- Ajout des pages au StackedWidget (inchangé) --
+        # -- Ajout des pages au StackedWidget --
         for page in self.pages.values():
             self.stacked_widget.addWidget(page)
 
         self.menu.page_changed.connect(self.changePage)
         self.stacked_widget.setCurrentIndex(0)
 
-        # -- On applique le layout principal à la fenêtre --
+        # -- Application du layout principal à la fenêtre --
         self.setLayout(main_layout)
         self.connect_signals()
 
@@ -156,5 +155,4 @@ class AnonymizationApp(QWidget):
     def get_open_page(self):
         """Retourne la page 'Open'."""
         return self.pages["open"]
-
 
