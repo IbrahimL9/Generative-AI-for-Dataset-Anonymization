@@ -204,39 +204,29 @@ class Build(QWidget):
     def preprocess_data(self, df):
         df = simplify_df(df)
 
-        # Convertir timestamp en datetime si present
         if 'timestamp' in df.columns:
             df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
             df = df.sort_values(by=['Actor', 'timestamp'])
         else:
-            # Sinon, on ajoute un timestamp par defaut
             df['timestamp'] = pd.Timestamp.now()
 
-        # Recupere le mode selectionne : "Actions" ou "Sessions"
         mode = self.data_mode_combo.currentText()
 
         if mode == "Sessions":
-            # 1) Calcul time_diff
             df['time_diff'] = df.groupby('Actor')['timestamp'].diff().fillna(pd.Timedelta(seconds=0))
-            # 2) Si ecart > 5 min => new session
             df['new_session'] = (df['time_diff'] > pd.Timedelta(minutes=5)).astype(int)
-            # 3) session_id
             df['session_id'] = df.groupby('Actor')['new_session'].cumsum()
-            # 4) Duration = time_diff
             df['Duration'] = df['time_diff'].dt.total_seconds().fillna(0)
 
-            # Nettoyage
             df.drop(columns=['time_diff','new_session'], inplace=True)
 
-            # Formatage eventuel du timestamp
             df['timestamp'] = df['timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S")
 
             # On inclut session_id dans le DataFrame final
             cols = ['timestamp','Duration','Actor','Verb','Object','session_id']
             df = df[cols]
 
-        else:  # mode == "Actions"
-            # On calcule juste la duree
+        else:
             df['Duration'] = df.groupby('Actor')['timestamp'].diff().dt.total_seconds().fillna(0)
             df['timestamp'] = df['timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S")
             cols = ['timestamp','Duration','Actor','Verb','Object']
