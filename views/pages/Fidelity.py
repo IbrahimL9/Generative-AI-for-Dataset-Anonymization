@@ -39,26 +39,47 @@ class Fidelity(QWidget):
         layout.addWidget(title)
 
         layout.addSpacing(50)
+
+        # Create the buttons with tooltips for information
         self.ksc_button = QPushButton("Compute the KS Complement")
+        self.ksc_button.setToolTip(
+            "Compute the KS Complement for categorical columns.\n"
+            "KS Complement measures the similarity between the real and synthetic data distributions.\n"
+            "A value closer to 0 indicates a better match."
+        )
         self.ksc_button.clicked.connect(self.calculate_ksc)
         layout.addWidget(self.ksc_button)
 
         self.tvc_button = QPushButton("Compute the TV Complement")
+        self.tvc_button.setToolTip(
+            "Compute the TV Complement for categorical columns.\n"
+            "TV Complement measures the total variation distance between real and synthetic data.\n"
+            "A value closer to 0 indicates a better match."
+        )
         self.tvc_button.clicked.connect(self.calculate_tvc)
         layout.addWidget(self.tvc_button)
 
         self.sequence_button = QPushButton("Check the logic of verb sequences")
+        self.sequence_button.setToolTip(
+            "Check the logic of verb sequences in the data.\n"
+            "This analysis compares the order of actions (verbs) between real and synthetic data.\n"
+            "It helps to ensure that the synthetic data maintains the logical sequence of actions."
+        )
         self.sequence_button.clicked.connect(self.calculate_verb_sequence_similarity)
         layout.addWidget(self.sequence_button)
 
         self.markov_button = QPushButton("Display the Markov transition matrix")
+        self.markov_button.setToolTip(
+            "Display the Markov transition matrix for verb sequences.\n"
+            "The Markov transition matrix shows the probabilities of transitioning from one verb to another.\n"
+            "Comparing these matrices for real and synthetic data helps assess the fidelity of the synthetic data."
+        )
         self.markov_button.clicked.connect(self.plot_markov_transition_matrices)
         layout.addWidget(self.markov_button)
 
         self.results_text = QPlainTextEdit()
         self.results_text.setReadOnly(True)
         layout.addWidget(self.results_text)
-
 
         self.setLayout(layout)
 

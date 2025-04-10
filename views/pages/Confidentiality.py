@@ -32,15 +32,31 @@ class Confidentiality(QWidget):
 
         layout.addSpacing(50)
 
+        # Create the buttons with tooltips for information
         self.cramers_v_button = QPushButton("Calculate Cramer's V")
+        self.cramers_v_button.setToolTip(
+            "Calculate the Cramer's V statistic for categorical variables.\n"
+            "Cramer's V measures the association between two categorical variables.\n"
+            "A value closer to 1 indicates a stronger association."
+        )
         self.cramers_v_button.clicked.connect(self.calculate_cramers_v)
         layout.addWidget(self.cramers_v_button)
 
         self.dcr_button = QPushButton("Calculate DCR")
+        self.dcr_button.setToolTip(
+            "Calculate the DCR (Distortion of Categorical Representation).\n"
+            "DCR measures the distortion between the original and synthetic data.\n"
+            "Lower values indicate less distortion."
+        )
         self.dcr_button.clicked.connect(self.calculate_dcr)
         layout.addWidget(self.dcr_button)
 
         self.pmse_button = QPushButton("Calculate pMSE")
+        self.pmse_button.setToolTip(
+            "Calculate the pMSE (probabilistic Mean Squared Error) for model evaluation.\n"
+            "pMSE evaluates the difference between the original and synthetic data distributions.\n"
+            "Lower values indicate better synthetic data quality."
+        )
         self.pmse_button.clicked.connect(self.calculate_pmse)
         layout.addWidget(self.pmse_button)
 
@@ -251,4 +267,3 @@ class Confidentiality(QWidget):
 
         except Exception as e:
             self.results_text.appendPlainText(f"Error calculating pMSE: {str(e)}")
-

@@ -32,6 +32,7 @@ class Tools(QWidget):
 
         main_layout.addSpacing(20)
 
+#
         def create_form_row(text, widget, tooltip):
             """Crée un label avec puce et tooltip (ni le label ni le widget ne sont en gras),
             puis renvoie (label, widget)."""
