@@ -51,10 +51,10 @@ class Analysis(QWidget):
     def runAnalysis(self):
         # Vérification des données de session
         session_data = self.main_app.session_data
-        if session_data is None or session_data.empty:
-            no_session_label = QLabel("No session data found. Please load or create session data first.")
-            self.scroll_layout.addWidget(no_session_label)
-            return
+        #if session_data is None or session_data.empty:
+            #no_session_label = QLabel("No session data found. Please load or create session data first.")
+            #self.scroll_layout.addWidget(no_session_label)
+            #return
 
         # Vérification des données originales
         df_original = getattr(self.main_app, "processed_dataframe", None)
@@ -94,6 +94,22 @@ class Analysis(QWidget):
         # Déterminer si les données générées sont des sessions ou des actions
         is_session_data = 'actions' in session_data.columns
 
+        # Construire une palette commune de couleurs pour les verbes
+        all_verbs_set = set()
+
+        if 'verb' in df_original.columns:
+            df_original['verb_name'] = df_original['verb'].apply(self.extract_verb)
+            all_verbs_set.update(df_original['verb_name'])
+
+        if 'verb' in df_generated.columns:
+            df_generated['verb_name'] = df_generated['verb'].apply(self.extract_verb)
+            all_verbs_set.update(df_generated['verb_name'])
+
+        # Générer le color map global pour les verbes
+        color_palette = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500', '#8A2BE2', '#FF4500', '#00CED1']
+        verb_color_map = {verb: color_palette[i % len(color_palette)] for i, verb in enumerate(sorted(all_verbs_set))}
+
+
         if is_session_data:
             # Combiner toutes les actions de toutes les sessions en un seul DataFrame
             all_session_data = []
@@ -105,8 +121,8 @@ class Analysis(QWidget):
             df_all_sessions = pd.DataFrame(all_session_data)
 
             # Génération des rapports HTML pour les données réelles et les sessions
-            html_original = self.create_analysis_html(df_original, "ORIGINAL DATA")
-            html_all_sessions = self.create_analysis_html(df_all_sessions, "GENERATED SESSION DATA")
+            html_original = self.create_analysis_html(df_original, "ORIGINAL DATA" , verb_color_map)
+            html_all_sessions = self.create_analysis_html(df_all_sessions, "GENERATED SESSION DATA" , verb_color_map)
 
             # Fusionner les rapports dans un seul bloc HTML côte à côte avec Flexbox
             final_html = f"""
@@ -117,8 +133,8 @@ class Analysis(QWidget):
             """
         else:
             # Génération des rapports HTML pour les données réelles et les actions
-            html_original = self.create_analysis_html(df_original, "ORIGINAL DATA")
-            html_generated = self.create_analysis_html(df_generated, "GENERATED ACTION DATA")
+            html_original = self.create_analysis_html(df_original, "ORIGINAL DATA", verb_color_map)
+            html_generated = self.create_analysis_html(df_generated, "GENERATED ACTION DATA", verb_color_map)
 
             # Fusionner les rapports dans un seul bloc HTML côte à côte avec Flexbox
             final_html = f"""
@@ -170,7 +186,7 @@ class Analysis(QWidget):
         required_columns = {'id', 'timestamp', 'verb', 'actor', 'object', 'duration'}
         return required_columns.issubset(df.columns)
 
-    def create_analysis_html(self, df, dataset_title):
+    def create_analysis_html(self, df, dataset_title, verb_color_map=None):
         """
         Calcule les statistiques et génère des graphiques pour un DataFrame donné,
         retourne un contenu HTML (sans balises <html>/<body> complètes).
@@ -254,7 +270,7 @@ class Analysis(QWidget):
 
 
         if actor_counts:
-            fig_list.append(self.create_actor_pie_chart(actor_counts, title_prefix + "Actor Distribution"))
+            fig_list.append(self.create_actor_per_verb_pie_chart(df, title_prefix + "Actors per Verb", verb_color_map))
 
         fig_html = "".join([pio.to_html(fig, full_html=False) for fig in fig_list])
         return f"<h2>{dataset_title}</h2>" + fig_html
@@ -348,19 +364,27 @@ class Analysis(QWidget):
         fig.update_layout(showlegend=False)
         return fig
 
-    def create_actor_pie_chart(self, actor_counts, title):
-        labels = list(actor_counts.keys())
-        sizes = list(actor_counts.values())
-        # Palette pour le diagramme en camembert
-        colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
+    def create_actor_per_verb_pie_chart(self, df, title, verb_color_map=None):
+        actor_per_verb = df.groupby('verb_name')['actor_name'].nunique().to_dict()
+        labels = list(actor_per_verb.keys())
+        values = list(actor_per_verb.values())
+
+        # Appliquer le mapping des couleurs si fourni
+        if verb_color_map:
+            colors = [verb_color_map.get(v, '#CCCCCC') for v in labels]
+        else:
+            colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
+
         fig = px.pie(
             names=labels,
-            values=sizes,
+            values=values,
             title=title,
-            width=800, height=400
+            width=1000,
+            height=500
         )
-        fig.update_traces(marker=dict(colors=colors[:len(labels)]))
+        fig.update_traces(marker=dict(colors=colors))
         return fig
+
 
     def clear_layout(self, layout):
         """Supprimer tous les widgets d'un layout donné."""

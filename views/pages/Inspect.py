@@ -190,7 +190,7 @@ class Inspect(QWidget):
         if avg_duration_per_verb:
             fig_list.append(self.create_bar_chart(avg_duration_per_verb, "Average Duration per Verb", y_axis="Avg Duration (s)"))
         if actor_counts:
-            fig_list.append(self.create_actor_pie_chart(actor_counts))
+            fig_list.append(self.create_actor_per_verb_pie_chart())
         html_content = "".join([pio.to_html(fig, full_html=False) for fig in fig_list])
         html_file_path = "all_charts_report.html"
         with open(html_file_path, "w", encoding="utf-8") as f:
@@ -273,19 +273,24 @@ class Inspect(QWidget):
         fig.update_layout(showlegend=False)
         return fig
 
-    def create_actor_pie_chart(self, actor_counts):
-        labels = list(actor_counts.keys())
-        sizes = list(actor_counts.values())
+    def create_actor_per_verb_pie_chart(self):
+        """
+        Calcule le nombre d'acteurs distincts par verbe et retourne un graphique camembert.
+        """
+        df = self.main_app.processed_dataframe
+        actor_per_verb = df.groupby('verb_name')['actor_name'].nunique().to_dict()
+
         fig = px.pie(
-            names=labels,
-            values=sizes,
-            title="Actor Distribution",
+            names=list(actor_per_verb.keys()),
+            values=list(actor_per_verb.values()),
+            title="Nombre d'acteurs distincts par verbe",
             width=1000,
             height=500
         )
         colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
-        fig.update_traces(marker_colors=colors[:len(labels)])
+        fig.update_traces(marker_colors=colors[:len(actor_per_verb)])
         return fig
+
 
     def create_object_pie_chart(self, object_counts):
         labels = list(object_counts.keys())
