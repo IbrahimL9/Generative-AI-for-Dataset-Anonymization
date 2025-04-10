@@ -25,12 +25,8 @@ def extract_name(value):
 
 
 class UpdateWorker(QObject):
-    """
-    Worker qui réalise le traitement des données à partir de download_button.json_data.
-    Cela inclut l'aplatissement éventuel de la liste, le calcul des durées entre événements,
-    et la construction d'un DataFrame.
-    """
-    finished = pyqtSignal(list, object)  # Renvoie la liste d'événements traitée et le DataFrame
+
+    finished = pyqtSignal(list, object)
     error = pyqtSignal(str)
 
     def __init__(self, data):
@@ -40,7 +36,6 @@ class UpdateWorker(QObject):
     @pyqtSlot()
     def run(self):
         try:
-            # Si data est une liste de listes, on l'aplatit, sinon on l'utilise directement
             events = sum(self.data, []) if isinstance(self.data[0], list) else self.data
 
             # Conversion en DataFrame
@@ -85,7 +80,8 @@ class Display(QWidget):
         self.main_app = main_app
         self.loading_label = None  # Pour afficher le message de chargement
         self.thread = None         # Référence au thread pour le worker
-        self.worker = None         # Référence au worker UpdateWorker
+        self.worker = None
+        self.table_already_loaded = False
         self.initUI()
 
     def initUI(self):
@@ -197,13 +193,13 @@ class Display(QWidget):
         self.table.setSortingEnabled(True)
         self.layout.addWidget(self.table)
 
-        # Démarrer la mise à jour (asynchrone) de la table
         self.updateTable()
 
     def showEvent(self, event):
-        # Chaque fois que la page Display devient visible, on tente de mettre à jour la table.
-        self.updateTable()
         super().showEvent(event)
+        if not self.table_already_loaded:
+            self.updateTable()
+            self.table_already_loaded = True
 
     def extract_name(self, value):
         return extract_name(value)

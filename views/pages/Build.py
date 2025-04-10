@@ -204,17 +204,17 @@ class Build(QWidget):
     def preprocess_data(self, df):
         df = simplify_df(df)
 
-        if 'timestamp' in df.columns:
-            df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-        else:
-            df['timestamp'] = pd.Timestamp.now()
-
+        # 1) Convertir en datetime
+        df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
         df['Actor'] = df['Actor'].astype(str)
+
+        # 2) Trier
         df = df.sort_values(by=['Actor', 'timestamp'])
 
+        # 3) Construire la durée de chaque évènement
         df['Duration'] = 0.0
         session_gap = 300  # 5 minutes
-        estimated_duration = 60  # 60 seconds by default
+        estimated_duration = 60  # 60 secondes par défaut
 
         for actor, group in df.groupby('Actor'):
             timestamps = group['timestamp'].tolist()
@@ -233,22 +233,26 @@ class Build(QWidget):
             # Dernier événement de l'utilisateur
             df.at[indices[-1], 'Duration'] = estimated_duration
 
-        # Formatage final
-        df['timestamp'] = df['timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S")
-
+        # 4) Si on est en mode "Sessions", identifier les sessions
         mode = self.data_mode_combo.currentText()
-
         if mode == "Sessions":
+            # Important : on calcule la différence pendant que c'est encore un datetime
             df['time_diff'] = df.groupby('Actor')['timestamp'].diff().fillna(pd.Timedelta(seconds=0))
             df['new_session'] = (df['time_diff'] > pd.Timedelta(minutes=5)).astype(int)
             df['session_id'] = df.groupby('Actor')['new_session'].cumsum()
             df.drop(columns=['time_diff', 'new_session'], inplace=True)
+
+            # On garde la colonne session_id
             cols = ['timestamp', 'Duration', 'Actor', 'Verb', 'Object', 'session_id']
         else:
             cols = ['timestamp', 'Duration', 'Actor', 'Verb', 'Object']
 
-        return df[cols]
+        df = df[cols]
 
+        # 5) (Optionnel) Convertir le timestamp en string une fois la logique sessions terminée
+        df['timestamp'] = df['timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        return df
 
 
 def simplify_df(df):

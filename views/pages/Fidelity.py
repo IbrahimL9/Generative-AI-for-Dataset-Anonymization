@@ -283,12 +283,12 @@ class Fidelity(QWidget):
         total_real = sum(real_counter.values())
         total_synth = sum(synth_counter.values())
 
-        self.results_text.appendPlainText("\n🔎 Top 10 bigrams réels (normalisés) :")
+        self.results_text.appendPlainText("\n Top 10 real bigrams (normalized) :")
         for pair, freq in top_real:
             percent = (freq / total_real) * 100 if total_real else 0
             self.results_text.appendPlainText(f"{pair} : {percent:.4f}%")
 
-        self.results_text.appendPlainText("\n🧪 Top 10 bigrams synthétiques (normalisés) :")
+        self.results_text.appendPlainText("\n Top 10 synthetic bigrams (normalized) :")
         for pair, freq in top_synth:
             percent = (freq / total_synth) * 100 if total_synth else 0
             self.results_text.appendPlainText(f"{pair} : {percent:.4f}%")
@@ -299,20 +299,20 @@ class Fidelity(QWidget):
         union = real_set | synth_set
         jaccard = len(intersection) / len(union) if union else 0.0
 
-        self.results_text.appendPlainText(f"\n✅ Indice de similarité Jaccard (Top 10 bigrams) : {jaccard:.2f}")
+        self.results_text.appendPlainText(f"\n Jaccard similarity index (Top 10 bigrams) : {jaccard:.2f}")
 
     def plot_markov_transition_matrices(self):
         df_real = self.ensure_dataframe(self.original_data)
         df_synth = self.flatten_synthetic_data(self.synthetic_data)
 
         if df_real.empty or df_synth.empty:
-            self.results_text.appendPlainText("Erreur : Données non disponibles.")
+            self.results_text.appendPlainText("Error : No available data.")
             return
 
         required_cols = ['actor', 'verb', 'timestamp']
         for col in required_cols:
             if col not in df_real.columns or col not in df_synth.columns:
-                self.results_text.appendPlainText(f"Erreur : Colonne manquante → {col}")
+                self.results_text.appendPlainText(f"Error : Colonne manquante → {col}")
                 return
 
         df_real = df_real.dropna(subset=required_cols).copy()
