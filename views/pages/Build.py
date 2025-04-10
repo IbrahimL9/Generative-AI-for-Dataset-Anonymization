@@ -206,9 +206,35 @@ class Build(QWidget):
 
         if 'timestamp' in df.columns:
             df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-            df = df.sort_values(by=['Actor', 'timestamp'])
         else:
             df['timestamp'] = pd.Timestamp.now()
+
+        df['Actor'] = df['Actor'].astype(str)
+        df = df.sort_values(by=['Actor', 'timestamp'])
+
+        df['Duration'] = 0.0
+        session_gap = 300  # 5 minutes
+        estimated_duration = 60  # 60 seconds by default
+
+        for actor, group in df.groupby('Actor'):
+            timestamps = group['timestamp'].tolist()
+            indices = group.index.tolist()
+
+            for i in range(len(indices) - 1):
+                current_idx = indices[i]
+                next_idx = indices[i + 1]
+
+                delta = (timestamps[i + 1] - timestamps[i]).total_seconds()
+                if delta <= session_gap:
+                    df.at[current_idx, 'Duration'] = delta
+                else:
+                    df.at[current_idx, 'Duration'] = estimated_duration
+
+            # Dernier événement de l'utilisateur
+            df.at[indices[-1], 'Duration'] = estimated_duration
+
+        # Formatage final
+        df['timestamp'] = df['timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S")
 
         mode = self.data_mode_combo.currentText()
 
@@ -216,23 +242,14 @@ class Build(QWidget):
             df['time_diff'] = df.groupby('Actor')['timestamp'].diff().fillna(pd.Timedelta(seconds=0))
             df['new_session'] = (df['time_diff'] > pd.Timedelta(minutes=5)).astype(int)
             df['session_id'] = df.groupby('Actor')['new_session'].cumsum()
-            df['Duration'] = df['time_diff'].dt.total_seconds().fillna(0)
-
-            df.drop(columns=['time_diff','new_session'], inplace=True)
-
-            df['timestamp'] = df['timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S")
-
-            # On inclut session_id dans le DataFrame final
-            cols = ['timestamp','Duration','Actor','Verb','Object','session_id']
-            df = df[cols]
-
+            df.drop(columns=['time_diff', 'new_session'], inplace=True)
+            cols = ['timestamp', 'Duration', 'Actor', 'Verb', 'Object', 'session_id']
         else:
-            df['Duration'] = df.groupby('Actor')['timestamp'].diff().dt.total_seconds().fillna(0)
-            df['timestamp'] = df['timestamp'].dt.strftime("%Y-%m-%d %H:%M:%S")
-            cols = ['timestamp','Duration','Actor','Verb','Object']
-            df = df[cols]
+            cols = ['timestamp', 'Duration', 'Actor', 'Verb', 'Object']
 
-        return df
+        return df[cols]
+
+
 
 def simplify_df(df):
     def simplify_value(x, key):
