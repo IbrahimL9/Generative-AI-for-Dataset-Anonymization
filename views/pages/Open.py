@@ -4,7 +4,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, pyqtSignal
-
+from PyQt6.QtCore import QTimer
+from PyQt6.QtWidgets import QLabel
 
 class Open(QWidget):
     fileDownloaded = pyqtSignal()
@@ -14,10 +15,9 @@ class Open(QWidget):
         super().__init__()
         self.download_button = download_button
         self.json_data = None
-
+        self.loading_label = QLabel("")  # 👈 Ajout d'un label d'état
         self.initUI()
 
-        # Connexion directe au signal (plus propre qu'un QTimer)
         self.download_button.file_loaded.connect(self.handle_file_loaded)
 
     def initUI(self):
@@ -37,18 +37,23 @@ class Open(QWidget):
         button_layout.addStretch()
 
         layout.addLayout(button_layout)
+
+        # 🔄 Ajout du label de chargement
+        self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.loading_label)
+
         layout.addStretch(2)
 
         self.setLayout(layout)
 
-    def reset(self):
-        """Réinitialiser l'état de la page."""
-        self.download_button.json_data = None
-        self.json_data = None
-
     def handle_file_loaded(self):
-        """Méthode appelée lorsqu'un fichier est chargé."""
-        # Si on n'a pas déjà stocké de données
         if self.json_data is None:
-            self.json_data = self.download_button.json_data
-            self.fileDownloaded.emit()
+            self.loading_label.setText("⏳ Chargement en cours...")  # 🟡 Message temporaire
+
+            # Retarde le signal + retire le message après 500ms
+            QTimer.singleShot(500, self.finish_loading)
+
+    def finish_loading(self):
+        self.json_data = self.download_button.json_data
+        self.loading_label.setText("")  # ✅ Nettoyage
+        self.fileDownloaded.emit()
