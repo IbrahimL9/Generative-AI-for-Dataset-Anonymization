@@ -177,24 +177,20 @@ class DownloadButton(QWidget):
         self.button.setText("Loading...")
         self.showMessage("Loading file in background...", success=True)
 
-        # On vide l'ancienne data
+        self.loaded_file_path = file_path  # ✅ Ajouté ici
         self.json_data = None
 
-        # Crée le thread et le worker
         self.thread = QThread()
         self.loader = JSONLoaderWorker(file_path)
         self.loader.moveToThread(self.thread)
 
-        # Connecte les signaux
         self.thread.started.connect(self.loader.run)
         self.loader.finished.connect(self.on_json_loaded)
         self.loader.error.connect(self.on_json_error)
 
-        # A la fin, on arrête le thread
         self.loader.finished.connect(self.thread.quit)
         self.loader.error.connect(self.thread.quit)
 
-        # Lancement
         self.thread.start()
 
     def on_json_loaded(self, data):
