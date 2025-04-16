@@ -8,12 +8,13 @@ from views.Styles import BUTTON_STYLE2, SUCCESS_MESSAGE_STYLE, ERROR_MESSAGE_STY
 
 
 class GenerateView(QWidget):
-    data_generated_signal = pyqtSignal()
+    data_generated_signal = pyqtSignal(object)
 
     def __init__(self, main_app):
         super().__init__()
         self.main_app = main_app
         self.initUI()
+        self.generated_data = None
 
 
     def initUI(self):
@@ -104,7 +105,6 @@ class GenerateView(QWidget):
     def on_model_loaded(self, model):
         self.model = model
         self.model_loaded = True
-        self.check_enable_generate_button()
 
     def on_file_loaded(self, json_data):
         self.json_data = json_data

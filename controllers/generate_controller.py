@@ -50,10 +50,9 @@ class GenerateController:
                 generated_data, session_data = self.model.generate(
                     trained_model,
                     num_records,
-                    self.view.records_input.text(),
-                    # On n'utilise pas ici le DataFrame original, c'est géré par le modèle
                     self.view.users_input.text()
                 )
+
                 self.generated_data = generated_data
                 self.session_data = session_data
                 self.main_app.session_data = session_data  # Mettre à jour la session globalement si besoin
@@ -68,3 +67,11 @@ class GenerateController:
                 QMessageBox.warning(self.view, "Error", "Model is not available.")
         except Exception as e:
             self.view.show_message(f"Error while generating: {str(e)}", "error")
+
+        self.view.generated_data = generated_data
+        self.view.data_generated_signal.emit(generated_data)  # ✅ EMISSION FINALE ICI
+
+    def on_model_loaded(self, model):
+        self.main_app.model_instance = model
+        self.view.on_model_loaded(model)
+        self.check_enable_generate_button()

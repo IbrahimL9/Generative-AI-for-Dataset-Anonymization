@@ -184,9 +184,8 @@ class AnalysisModel:
         fig.update_traces(marker=dict(colors=colors[:len(labels)]))
         return fig
 
-    # ---------------------------------------------------
-    #             HTML ANALYSIS CREATION
-    # ---------------------------------------------------
+
+
     def create_analysis_html(self, df, dataset_title, verb_color_map=None):
         if df.empty:
             return f"<h2>{dataset_title}</h2><p>No data</p>"
@@ -230,17 +229,26 @@ class AnalysisModel:
         else:
             avg_events = min_events = max_events = std_events = 0
 
+        # Fusionner les durées de 'duration' et 'Duration' (si présentes)
+        durations_per_verb = {}
+
         if 'duration' in df.columns:
-            durations_per_verb = df.groupby('verb_name')['duration'].apply(list)
-            avg_duration_per_verb = {v: mean(d) for v, d in durations_per_verb.items() if d}
-        else:
-            avg_duration_per_verb = {}
+            d1 = df.groupby('verb_name')['duration'].apply(list)
+            for verb, values in d1.items():
+                durations_per_verb[verb] = durations_per_verb.get(verb, []) + values
 
         if 'Duration' in df.columns:
-            durations_per_verbe = df.groupby('verb_name')['Duration'].apply(list)
-            avg_duration_per_verbe = {v: mean(d) for v, d in durations_per_verbe.items() if d}
-        else:
-            avg_duration_per_verbe = {}
+            d2 = df.groupby('verb_name')['Duration'].apply(list)
+            for verb, values in d2.items():
+                durations_per_verb[verb] = durations_per_verb.get(verb, []) + values
+
+        # Calcul de la moyenne par verbe
+        avg_duration_per_verb = {}
+        for verb, durations in durations_per_verb.items():
+            cleaned = [float(d) for d in durations if
+                       isinstance(d, (int, float)) or (isinstance(d, str) and d.replace('.', '', 1).isdigit())]
+            if cleaned:
+                avg_duration_per_verb[verb] = mean(cleaned)
 
         # Création des graphiques
         fig_list = []
@@ -256,10 +264,7 @@ class AnalysisModel:
             fig_list.append(self.create_bar_chart(
                 avg_duration_per_verb, title_prefix + "Average duration per Verb", y_axis="Avg duration (s)"
             ))
-        if avg_duration_per_verbe:
-            fig_list.append(self.create_bar_chart(
-                avg_duration_per_verbe, title_prefix + "Average Duration per Verb", y_axis="Avg Duration (s)"
-            ))
+
         if actor_counts:
             fig_list.append(self.create_actor_per_verb_pie_chart(df, title_prefix + "Actors per Verb", verb_color_map))
 

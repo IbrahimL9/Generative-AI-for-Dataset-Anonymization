@@ -2,9 +2,9 @@
 import json
 import os
 
-MAX_PARAMS = 100  # Maximum number of saved parameter sets
 
 class ToolsModel:
+    MAX_PARAMS = 100
     def __init__(self, params_file="params.json"):
         self.params_file = params_file
         self.saved_params = {}
@@ -26,7 +26,7 @@ class ToolsModel:
             json.dump(self.saved_params, file, indent=4)
 
     def save_parameters(self, name, params):
-        if len(self.saved_params) >= MAX_PARAMS:
+        if len(self.saved_params) >= ToolsModel.MAX_PARAMS:
             raise Exception("Maximum number of saved parameters reached. Please delete one before saving a new one.")
         self.saved_params[name] = params
         self.save_to_file()
@@ -37,6 +37,12 @@ class ToolsModel:
             self.save_to_file()
             return True
         return False
+
+    def get_parameter(self, name):
+        return self.saved_params.get(name, None)
+
+    def get_all_parameter_sets(self):
+        return self.saved_params
 
     def get_parameter(self, name):
         return self.saved_params.get(name, None)

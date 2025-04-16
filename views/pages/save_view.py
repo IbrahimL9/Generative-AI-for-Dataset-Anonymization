@@ -16,6 +16,7 @@ class SaveView(QWidget):
         self.initUI()
 
 
+
     def initUI(self):
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)

@@ -42,7 +42,7 @@ class ToolsView(QWidget):
         training_form = self._create_form_layout([
             ("number of epochs:", LINEEDIT_STYLE, "200", "number of training iterations (epochs) to run during model training."),
             ("batch size:", LINEEDIT_STYLE, "500", "number of samples processed in a single training batch."),
-            ("verbose mode:", COMBOBOX_STYLE, None, "display detailed training logs.", ["True", "False"])
+            ("verbose mode:", COMBOBOX_STYLE, None, "display detailed training logs.", "combo", ["True", "False"])
         ])
         self.epochs_edit = training_form['number of epochs:']
         self.batch_size_edit = training_form['batch size:']
@@ -82,9 +82,11 @@ class ToolsView(QWidget):
         advanced_title = QLabel("Advanced Options")
         advanced_title.setFont(QFont("Montserrat", 14, QFont.Weight.Bold))
         advanced_form = self._create_form_layout([
-            ("enforce min/max constraints:", None, None, "enforce minimum and maximum value constraints on the generated outputs.", None, "combo", ["True", "False"]),
+            ("enforce min/max constraints:", COMBOBOX_STYLE, None,
+             "enforce minimum and maximum value constraints on the generated outputs.", "combo", ["True", "False"]),
             ("number of data to generate:", LINEEDIT_STYLE, "2000", "number of data samples to generate.")
         ])
+
         self.minmax_combo = advanced_form['enforce min/max constraints:']
         self.data_to_generate_edit = advanced_form['number of data to generate:']
         self.sections_layout.addWidget(advanced_title, 2, 1)

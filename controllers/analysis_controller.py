@@ -3,7 +3,8 @@ import os
 import pandas as pd
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import QTimer
-from PySide6.QtGui import Qt
+from PyQt6.QtWidgets import QLabel
+from PyQt6.QtCore import Qt
 
 from models.analysis_model import AnalysisModel
 from views.pages.analysis_view import AnalysisView
@@ -128,7 +129,6 @@ class AnalysisController:
         self.analysis_generated = True
 
     def _create_label(self, text):
-        from PyQt6.QtWidgets import QLabel
         label = QLabel(text)
         label.setFont(QFont("Montserrat", 14))
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)

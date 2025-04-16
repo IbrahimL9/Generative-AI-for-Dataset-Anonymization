@@ -19,7 +19,7 @@ class ToolsController:
         QMessageBox.information(self.view, "Confirm", "Parameters have been confirmed.")
 
     def save_parameters(self):
-        if len(self.model.saved_params) >= self.model.MAX_PARAMS:
+        if len(self.model.saved_params) >= ToolsModel.MAX_PARAMS:
             QMessageBox.warning(self.view, "Limit Reached",
                                 "You have reached the maximum of 100 saved parameters. Please delete one before saving a new one.")
             return
@@ -40,7 +40,7 @@ class ToolsController:
                 "minmax": self.view.minmax_combo.currentText(),
             }
             try:
-                self.model.add_parameter_set(name, params)
+                self.model.save_parameters(name, params)
                 QMessageBox.information(self.view, "Save", f"Parameters have been saved as '{name}'.")
             except Exception as e:
                 QMessageBox.warning(self.view, "Error", str(e))
@@ -90,7 +90,7 @@ class ToolsController:
         selected_item = history_list_widget.currentItem()
         if selected_item:
             selected_name = selected_item.text()
-            params = self.model.get_parameter_set(selected_name)
+            params = self.model.get_parameter(selected_name)
             if params:
                 self.load_selected_parameters(params)
         dialog.accept()
@@ -99,7 +99,7 @@ class ToolsController:
         selected_item = history_list_widget.currentItem()
         if selected_item:
             selected_name = selected_item.text()
-            self.model.delete_parameter_set(selected_name)
+            self.model.delete_parameter(selected_name)
             history_list_widget.takeItem(history_list_widget.row(selected_item))
             QMessageBox.information(self.view, "Deleted", f"Parameter '{selected_name}' has been deleted.")
 

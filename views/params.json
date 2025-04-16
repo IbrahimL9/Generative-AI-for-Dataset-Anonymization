@@ -1,0 +1,28 @@
+{
+    "g": {
+        "epochs": "300",
+        "batch_size": "500",
+        "gen_lr": "0.002",
+        "disc_lr": "0.002",
+        "embedding_dim": "128",
+        "generator_dim": "256,256",
+        "discriminator_dim": "256,256",
+        "pac": "10",
+        "data_to_generate": "2000",
+        "verbose": "True",
+        "minmax": "True"
+    },
+    "jh": {
+        "epochs": "200",
+        "batch_size": "500",
+        "gen_lr": "0.002",
+        "disc_lr": "0.002",
+        "embedding_dim": "128",
+        "generator_dim": "256,256",
+        "discriminator_dim": "256,256",
+        "pac": "10",
+        "data_to_generate": "2000",
+        "verbose": "True",
+        "minmax": "True"
+    }
+}

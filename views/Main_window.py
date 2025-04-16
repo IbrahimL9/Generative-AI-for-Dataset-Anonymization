@@ -8,6 +8,16 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QIcon
 
+# --- Controllers ---
+from controllers.analysis_controller import AnalysisController
+from controllers.generate_controller import GenerateController
+from controllers.tools_controller import ToolsController
+from controllers.display_controller import DisplayController
+from controllers.inspect_controller import InspectController
+from controllers.build_controller import BuildController
+from controllers.save_controller import SaveController
+
+# --- Views ---
 from views.Menu import Menu
 from views.pages.Open import Open
 from views.pages.New import New
@@ -16,17 +26,16 @@ from views.pages.tools_view import ToolsView
 from views.pages.analysis_view import AnalysisView
 from views.pages.save_view import SaveView
 from views.pages.generate_view import GenerateView
-from views.pages.fidelity_view import FidelityView
-from views.pages.confidentiality_view import ConfidentialityView
+from views.pages.confidentiality import Confidentiality
 from views.Download_button import DownloadButton
-from controllers.display_controller import DisplayController
-from controllers.inspect_controller import InspectController
-from controllers.build_controller import BuildController  # ✅ Import du contrôleur
+from views.pages.fidelity import Fidelity
+
 
 class AnonymizationApp(QWidget):
     def __init__(self):
         super().__init__()
         self.session_data = pd.DataFrame()
+        self.json_data = None
         self.initUI()
 
     def initUI(self):
@@ -73,23 +82,34 @@ class AnonymizationApp(QWidget):
 
         # --- Initialisation des vues et contrôleurs ---
         self.tools = ToolsView()
+        self.tools_controller = ToolsController(self.tools)
         self.display_controller = DisplayController(self.download_button, self)
         self.inspect_controller = InspectController(self.download_button, self)
-        self.build_controller = BuildController(self, self.download_button, self.tools)  # ✅ BuildController instancié ici
+        self.build_controller = BuildController(self, self.download_button, self.tools)
+        self.generate_view = GenerateView(self)
+        self.generate_controller = GenerateController(self, self.generate_view)
 
-        # --- Définir les pages ---
+        # ✅ Instanciation directe des vues monolithiques
+        self.confidentiality_view = Confidentiality(self)
+        self.fidelity_view = Fidelity(self)
+
+        # --- Pages ---
         self.pages = {
             "open": Open(self.download_button),
-            "display": DisplayView(self.download_button, self),           "inspect": self.inspect_controller.view,
+            "display": DisplayView(self.download_button, self),
+            "inspect": self.inspect_controller.view,
             "new": New(self),
-            "build": self.build_controller.view,  # ✅ Utilisation de la vue du contrôleur
+            "build": self.build_controller.view,
             "tools": self.tools,
-            "generate": GenerateView(self),
+            "generate": self.generate_view,
             "analysis": AnalysisView(self),
             "save": SaveView(self),
-            "fidelity": FidelityView(self),
-            "confidentiality": ConfidentialityView(self)
+            "fidelity": self.fidelity_view,
+            "confidentiality": self.confidentiality_view
         }
+
+        self.analysis_controller = AnalysisController(self, self.pages["analysis"])
+        self.save_controller = SaveController(self, self.pages["save"])
 
         for page in self.pages.values():
             self.stacked_widget.addWidget(page)
@@ -101,12 +121,14 @@ class AnonymizationApp(QWidget):
 
     def connect_signals(self):
         self.pages["new"].model_loaded.connect(self.pages["build"].on_model_loaded)
-        self.pages["new"].model_loaded.connect(self.pages["generate"].on_model_loaded)
+        self.pages["new"].model_loaded.connect(self.generate_controller.on_model_loaded)
         self.pages["open"].fileLoaded.connect(self.pages["generate"].on_file_loaded)
         self.pages["generate"].data_generated_signal.connect(self.pages["save"].on_data_generated)
         self.pages["generate"].data_generated_signal.connect(self.pages["confidentiality"].on_data_generated)
         self.pages["generate"].data_generated_signal.connect(self.pages["fidelity"].on_data_generated)
         self.download_button.file_loaded.connect(self.pages["display"].updateTable)
+        self.pages["generate"].data_generated_signal.connect(self.pages["save"].on_data_generated)
+        self.pages["generate"].data_generated_signal.connect(self.save_controller.on_data_generated)
 
     def centerWindow(self):
         screen_geometry = QApplication.primaryScreen().availableGeometry()
@@ -118,11 +140,12 @@ class AnonymizationApp(QWidget):
     def enableMenu(self):
         print("✅ File loaded. Menu enabled.")
         self.menu.setEnabled(True)
+        self.json_data = self.download_button.json_data
         self.inspect_controller.schedule_update()
 
     def changePage(self, page_key: str):
         if page_key in ["display", "inspect"] and (
-            not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None
+                not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None
         ):
             QMessageBox.warning(self, "File Not Downloaded", "Please download a file before accessing this page.")
             return
@@ -154,4 +177,3 @@ class AnonymizationApp(QWidget):
 
     def get_open_page(self):
         return self.pages["open"]
-
