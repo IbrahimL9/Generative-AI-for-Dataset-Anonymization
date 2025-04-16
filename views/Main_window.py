@@ -1,22 +1,27 @@
+# anonymization_app.py
+
+import os
+import pandas as pd
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget, QApplication, QMessageBox, QPushButton
 )
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QIcon
-from .Menu import Menu
+
+from views.Menu import Menu
 from views.pages.Open import Open
-from views.pages.Display import Display
-from views.pages.Inspect import Inspect
 from views.pages.New import New
-from views.pages.Build import Build
-from views.pages.Tools import Tools
-from views.pages.Analysis import Analysis
-from views.pages.Save import Save
-from views.pages.Generate import Generate
+from views.pages.display_view import DisplayView
+from views.pages.tools_view import ToolsView
+from views.pages.analysis_view import AnalysisView
+from views.pages.save_view import SaveView
+from views.pages.generate_view import GenerateView
+from views.pages.fidelity_view import FidelityView
+from views.pages.confidentiality_view import ConfidentialityView
 from views.Download_button import DownloadButton
-from views.pages.Fidelity import Fidelity
-from views.pages.Confidentiality import Confidentiality
-import pandas as pd
+from controllers.display_controller import DisplayController
+from controllers.inspect_controller import InspectController
+from controllers.build_controller import BuildController  # ✅ Import du contrôleur
 
 class AnonymizationApp(QWidget):
     def __init__(self):
@@ -29,33 +34,26 @@ class AnonymizationApp(QWidget):
         self.centerWindow()
         self.setStyleSheet("background-color: white;")
 
-        # -- Layout principal horizontal --
         main_layout = QHBoxLayout()
         main_layout.setContentsMargins(0, 0, 10, 0)
         main_layout.setSpacing(40)
 
-        # -- Menu à gauche --
         self.menu = Menu()
         main_layout.addWidget(self.menu)
 
-        # -- Bouton Download --
         self.download_button = DownloadButton('Download File')
         self.download_button.file_loaded.connect(self.enableMenu)
 
-        # -- Layout vertical pour la zone de droite --
         right_layout = QVBoxLayout()
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(10)
-        # On force l'alignement vers le haut
         right_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # -- StackedWidget --
         self.stacked_widget = QStackedWidget()
         right_layout.addWidget(self.stacked_widget)
 
-        # -- Bouton Refresh placé immédiatement sous le StackedWidget --
         self.refresh_button = QPushButton("")
-        self.refresh_button.setIcon(QIcon("images/reset.png"))  # Vérifiez que le chemin vers l'icône est correct
+        self.refresh_button.setIcon(QIcon("images/reset.png"))
         self.refresh_button.setIconSize(QSize(40, 40))
         self.refresh_button.setFixedSize(60, 60)
         self.refresh_button.setVisible(False)
@@ -71,35 +69,33 @@ class AnonymizationApp(QWidget):
         self.refresh_button.clicked.connect(self.refresh_application)
         right_layout.addWidget(self.refresh_button, alignment=Qt.AlignmentFlag.AlignRight)
 
-        # -- Ajout du layout vertical à la droite du main_layout --
         main_layout.addLayout(right_layout)
 
-        # -- Instanciation de la classe Tools --
-        self.tools = Tools()
+        # --- Initialisation des vues et contrôleurs ---
+        self.tools = ToolsView()
+        self.display_controller = DisplayController(self.download_button, self)
+        self.inspect_controller = InspectController(self.download_button, self)
+        self.build_controller = BuildController(self, self.download_button, self.tools)  # ✅ BuildController instancié ici
 
-        # -- Définition des pages --
+        # --- Définir les pages ---
         self.pages = {
             "open": Open(self.download_button),
-            "display": Display(self.download_button, self),
-            "inspect": Inspect(self.download_button, self),
+            "display": DisplayView(self.download_button, self),           "inspect": self.inspect_controller.view,
             "new": New(self),
-            "build": Build(self, self.download_button, self.tools),
+            "build": self.build_controller.view,  # ✅ Utilisation de la vue du contrôleur
             "tools": self.tools,
-            "generate": Generate(self),
-            "analysis": Analysis(self),
-            "save": Save(self),
-            "fidelity": Fidelity(self),
-            "confidentiality": Confidentiality(self)
+            "generate": GenerateView(self),
+            "analysis": AnalysisView(self),
+            "save": SaveView(self),
+            "fidelity": FidelityView(self),
+            "confidentiality": ConfidentialityView(self)
         }
 
-        # -- Ajout des pages au StackedWidget --
         for page in self.pages.values():
             self.stacked_widget.addWidget(page)
 
         self.menu.page_changed.connect(self.changePage)
         self.stacked_widget.setCurrentIndex(0)
-
-        # -- Application du layout principal à la fenêtre --
         self.setLayout(main_layout)
         self.connect_signals()
 
@@ -110,9 +106,9 @@ class AnonymizationApp(QWidget):
         self.pages["generate"].data_generated_signal.connect(self.pages["save"].on_data_generated)
         self.pages["generate"].data_generated_signal.connect(self.pages["confidentiality"].on_data_generated)
         self.pages["generate"].data_generated_signal.connect(self.pages["fidelity"].on_data_generated)
+        self.download_button.file_loaded.connect(self.pages["display"].updateTable)
 
     def centerWindow(self):
-        """Centre la fenêtre principale."""
         screen_geometry = QApplication.primaryScreen().availableGeometry()
         window_width, window_height = 1000, 700
         x = (screen_geometry.width() - window_width) // 2
@@ -120,9 +116,9 @@ class AnonymizationApp(QWidget):
         self.setGeometry(x, y, window_width, window_height)
 
     def enableMenu(self):
-        """Active le menu une fois le fichier chargé."""
-        print("Menu enabled")
+        print("✅ File loaded. Menu enabled.")
         self.menu.setEnabled(True)
+        self.inspect_controller.schedule_update()
 
     def changePage(self, page_key: str):
         if page_key in ["display", "inspect"] and (
@@ -130,29 +126,32 @@ class AnonymizationApp(QWidget):
         ):
             QMessageBox.warning(self, "File Not Downloaded", "Please download a file before accessing this page.")
             return
-        page_index = list(self.pages.keys()).index(page_key)
-        self.stacked_widget.setCurrentIndex(page_index)
+        if page_key == "inspect":
+            self.inspect_controller.schedule_update()
+        self.stacked_widget.setCurrentIndex(list(self.pages.keys()).index(page_key))
 
     def refresh_application(self):
-        """Réinitialiser complètement l'application."""
+        print("🔄 Application reset.")
         self.session_data = pd.DataFrame()
+
         for page in self.pages.values():
             if hasattr(page, 'reset'):
                 page.reset()
+
         self.menu.show_initial_submenu("Source", "Open file")
         self.menu.setCurrentRow(0)
         self.stacked_widget.setCurrentIndex(0)
         self.download_button.reset()
         self.connect_signals()
+        self.display_controller.load_data()
+        self.inspect_controller.schedule_update()
 
     def resetMenuSelection(self, index):
-        """Réinitialise la sélection du menu lors du changement de page."""
         self.menu.blockSignals(True)
         self.menu.setCurrentRow(index)
         self.menu.blockSignals(False)
         self.stacked_widget.setCurrentIndex(index)
 
     def get_open_page(self):
-        """Retourne la page 'Open'."""
         return self.pages["open"]
 
