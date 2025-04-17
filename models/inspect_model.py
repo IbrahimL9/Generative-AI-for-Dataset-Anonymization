@@ -42,14 +42,12 @@ class InspectModel:
                            df=None):
         fig_list = []
 
-        # Graphiques principaux
         fig_list.append(self.create_bar_chart(verb_counts, "Most Used Verbs"))
         fig_list.append(self.create_object_pie_chart(object_counts))
         fig_list.append(self.create_event_time_chart(first_event, last_event))
-        fig_list.append(self.create_histogram(avg_events, min_events, max_events, "Events per Actor"))
-        fig_list.append(self.create_statistics_bar_chart(avg_value, std_value))
+        fig_list.append(self.create_statistics_combined_chart(avg_events, min_events, max_events, std_value,
+                                                              "Events per Actor (Avg, Min, Max, Std Dev)"))
 
-        # Graphiques additionnels
         if avg_duration_per_verb:
             fig_list.append(
                 self.create_bar_chart(avg_duration_per_verb, "Average Duration per Verb", y_axis="Avg Duration (s)"))
@@ -60,47 +58,44 @@ class InspectModel:
         html_content = "".join([pio.to_html(fig, full_html=False) for fig in fig_list])
         return f"<h2>STATISTICS REPORT</h2>" + html_content
 
+    def _get_palette(self):
+        return [
+            "#6497b1", "#005b96", "#b3cde0", "#03396c", "#011f4b", "#7baedc", "#6A8CAF", "#4D6D9A", "#8FB7CC",
+            "#A6BFE4", "#C9D9F0", "#B1C7E0", "#DDEBF7", "#82A8D9", "#A2C0E0", "#5B7DB1", "#87B2C4", "#B8CCE4",
+            "#9CB8D2", "#4a90e2"
+        ]
+
     def create_bar_chart(self, data, title, y_axis="Count"):
         labels = list(data.keys())
         values = [data[label] for label in labels]
-        fig = px.bar(x=labels, y=values, labels={"x": "Category", "y": y_axis}, title=title, width=1000, height=500)
-        colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
-        fig.update_traces(marker_color=colors[:len(labels)])
+        fig = px.bar(x=labels, y=values,
+                     labels={"x": "Category", "y": y_axis},
+                     title=title, width=1000, height=500)
+        palette = self._get_palette()
+        fig.update_traces(marker_color=palette[:len(labels)])
         fig.update_layout(showlegend=False)
         return fig
 
-    def create_histogram(self, avg_value, min_value, max_value, title):
-        labels = ["Average", "Min", "Max"]
-        values = [avg_value, min_value, max_value]
-        fig = px.bar(x=labels, y=values, labels={"x": "Stats", "y": "Events per Actor"}, title=title, width=1000, height=500)
-        fig.update_traces(marker_color=['#636EFA', '#EF553B', '#00CC96'])
+    def create_statistics_combined_chart(self, avg, min_val, max_val, std, title):
+        labels = ["Average", "Min", "Max", "Std Dev"]
+        values = [avg, min_val, max_val, std]
+        fig = px.bar(x=labels, y=values,
+                     labels={"x": "Stats", "y": "Events per Actor"},
+                     title=title, width=1000, height=500)
+        palette = self._get_palette()
+        fig.update_traces(marker_color=palette[:len(labels)])
         fig.update_layout(showlegend=False)
         return fig
 
     def create_event_time_chart(self, first_event, last_event):
-        fig = px.bar(
-            x=["First Event", "Last Event"],
-            y=[1, 1],
-            text=[first_event, last_event],
-            labels={"x": "Event Type", "y": "Timestamp"},
-            title="Event Timestamps",
-            width=1000,
-            height=500
-        )
-        fig.update_traces(marker_color=['#636EFA', '#EF553B'], textposition="outside")
-        fig.update_layout(showlegend=False)
-        return fig
-
-    def create_statistics_bar_chart(self, avg_value, std_value):
-        fig = px.bar(
-            x=["Average", "Std Dev"],
-            y=[avg_value, std_value],
-            labels={"x": "Stats", "y": "Value"},
-            title="Average & Std Dev of Events per Actor",
-            width=1000,
-            height=500
-        )
-        fig.update_traces(marker_color=['#636EFA', '#EF553B'])
+        labels = ["First Event", "Last Event"]
+        values = [1, 1]
+        texts = [first_event, last_event]
+        fig = px.bar(x=labels, y=values, text=texts,
+                     labels={"x": "Event Type", "y": "Timestamp"},
+                     title="Event Timestamps", width=1000, height=500)
+        palette = self._get_palette()
+        fig.update_traces(marker_color=palette[:len(labels)], textposition="outside")
         fig.update_layout(showlegend=False)
         return fig
 
@@ -112,8 +107,8 @@ class InspectModel:
             width=1000,
             height=500
         )
-        colors = ['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500']
-        fig.update_traces(marker_colors=colors[:len(actor_per_verb)])
+        palette = self._get_palette()
+        fig.update_traces(marker_colors=palette[:len(actor_per_verb)])
         return fig
 
     def create_object_pie_chart(self, object_counts):
@@ -126,5 +121,6 @@ class InspectModel:
             width=1000,
             height=500
         )
-        fig.update_traces(marker_colors=['#636EFA', '#EF553B', '#00CC96', '#FFD700', '#FF1493', '#32CD32', '#FFA500'])
+        palette = self._get_palette()
+        fig.update_traces(marker_colors=palette[:len(labels)])
         return fig
