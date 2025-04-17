@@ -1,18 +1,21 @@
 import pandas as pd
-import seaborn as sns
 import numpy as np
-from PyQt6.QtGui import QFont
-from PyQt6.QtCore import Qt
-from sklearn.preprocessing import LabelEncoder
-from PyQt6.QtWidgets import (
-    QWidget, QLabel, QVBoxLayout, QPushButton, QPlainTextEdit, QApplication, QSpacerItem,
-    QSizePolicy, QHBoxLayout, QComboBox
-)
-
-from sdmetrics.single_column import KSComplement, TVComplement
+import seaborn as sns
 import matplotlib.pyplot as plt
 
-# Fonction d'encodage des catégories en nombres
+from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import (
+    QWidget, QLabel, QVBoxLayout, QHBoxLayout,
+    QPushButton, QPlainTextEdit, QToolTip
+)
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import pairwise_distances, mean_squared_error
+from sklearn.ensemble import RandomForestClassifier
+
+from sdmetrics.single_column import KSComplement, TVComplement
+
 def encode_categorical(df, columns):
     encoders = {}
     for col in columns:
@@ -21,12 +24,13 @@ def encode_categorical(df, columns):
         encoders[col] = le
     return df, encoders
 
+
 class Fidelity(QWidget):
     def __init__(self, main_app):
         super().__init__()
         self.main_app = main_app
         self.synthetic_data = pd.DataFrame()
-        self.original_data = pd.DataFrame()
+        self.original_data  = pd.DataFrame()
         self.initUI()
 
     def initUI(self):
@@ -37,353 +41,242 @@ class Fidelity(QWidget):
         title.setFont(QFont("Montserrat", 21, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
-
         layout.addSpacing(50)
 
-        # Create the buttons with tooltips for information
+        # KS Complement
+        h1 = QHBoxLayout()
         self.ksc_button = QPushButton("Compute the KS Complement")
-        self.ksc_button.setToolTip(
-            "Compute the KS Complement for categorical columns.\n"
-            "KS Complement measures the similarity between the real and synthetic data distributions.\n"
-            "A value closer to 0 indicates a better match."
-        )
         self.ksc_button.clicked.connect(self.calculate_ksc)
-        layout.addWidget(self.ksc_button)
+        h1.addWidget(self.ksc_button)
+        info1 = QPushButton("?"); info1.setFixedSize(24, 24)
+        info1.clicked.connect(lambda: self._show_info_tooltip(
+            "KS Complement Info",
+            "KS Complement measures the maximum distance between the real and synthetic CDFs.\n"
+            "Values close to 0 indicate better fidelity."
+        ))
 
+        h1.addWidget(info1)
+        layout.addLayout(h1)
+
+        # TV Complement
+        h2 = QHBoxLayout()
         self.tvc_button = QPushButton("Compute the TV Complement")
-        self.tvc_button.setToolTip(
-            "Compute the TV Complement for categorical columns.\n"
-            "TV Complement measures the total variation distance between real and synthetic data.\n"
-            "A value closer to 0 indicates a better match."
-        )
         self.tvc_button.clicked.connect(self.calculate_tvc)
-        layout.addWidget(self.tvc_button)
+        h2.addWidget(self.tvc_button)
+        info2 = QPushButton("?"); info2.setFixedSize(24, 24)
+        info2.clicked.connect(lambda: self._show_info_tooltip(
+            "TV Complement Info",
+            "TV Complement (Total Variation) quantifies the total distance between distributions.\n"
+            "Values close to 0 indicate better fidelity."
+        ))
 
-        self.sequence_button = QPushButton("Check the logic of verb sequences")
-        self.sequence_button.setToolTip(
-            "Check the logic of verb sequences in the data.\n"
-            "This analysis compares the order of actions (verbs) between real and synthetic data.\n"
-            "It helps to ensure that the synthetic data maintains the logical sequence of actions."
-        )
+        h2.addWidget(info2)
+        layout.addLayout(h2)
+
+        # Verb sequence logic
+        h3 = QHBoxLayout()
+        self.sequence_button = QPushButton("Check verb sequence logic")
         self.sequence_button.clicked.connect(self.calculate_verb_sequence_similarity)
-        layout.addWidget(self.sequence_button)
+        h3.addWidget(self.sequence_button)
+        info3 = QPushButton("?"); info3.setFixedSize(24, 24)
+        info3.clicked.connect(lambda: self._show_info_tooltip(
+            "Sequence Logic Info",
+            "Compares the order of verbs per user, real vs synthetic.\n"
+            "A high Jaccard index indicates good logic preservation."
+        ))
+        h3.addWidget(info3)
+        layout.addLayout(h3)
 
-        self.markov_button = QPushButton("Display the Markov transition matrix")
-        self.markov_button.setToolTip(
-            "Display the Markov transition matrix for verb sequences.\n"
-            "The Markov transition matrix shows the probabilities of transitioning from one verb to another.\n"
-            "Comparing these matrices for real and synthetic data helps assess the fidelity of the synthetic data."
-        )
+        # Markov transition matrices
+        h4 = QHBoxLayout()
+        self.markov_button = QPushButton("Display Markov transition matrices")
         self.markov_button.clicked.connect(self.plot_markov_transition_matrices)
-        layout.addWidget(self.markov_button)
+        h4.addWidget(self.markov_button)
+        info4 = QPushButton("?"); info4.setFixedSize(24, 24)
+        info4.clicked.connect(lambda: self._show_info_tooltip(
+            "Markov Matrix Info",
+            "Displays the transition probabilities from one verb to another.\n"
+            "The L1 divergence indicates the overall difference."
+        ))
+        h4.addWidget(info4)
+        layout.addLayout(h4)
 
+        layout.addSpacing(20)
         self.results_text = QPlainTextEdit()
         self.results_text.setReadOnly(True)
         layout.addWidget(self.results_text)
 
         self.setLayout(layout)
 
+    def _show_info_tooltip(self, title: str, message: str):
+        btn = self.sender()
+        pos = btn.mapToGlobal(btn.rect().bottomLeft()) if btn else self.mapToGlobal(self.rect().center())
+        html = f"<b>{title}</b><br>{message.replace(chr(10), '<br>')}"
+        QToolTip.showText(pos, html, btn)
+
     def on_data_generated(self, synthetic_data):
-        print("✅ Data received in Confidentiality")
-
-        self.synthetic_data = self.ensure_dataframe(synthetic_data)
-        self.original_data = self.ensure_dataframe(self.main_app.json_data)
-
-        print("🔎 PRE-FLAT synthetic_data.columns:", self.synthetic_data.columns)
+        self.synthetic_data = self._ensure_df(synthetic_data)
+        self.original_data  = self._ensure_df(self.main_app.json_data)
         if 'actions' in self.synthetic_data.columns:
-            print("🔍 SAMPLE ACTIONS (synthetic):", self.synthetic_data['actions'].iloc[0])
+            self.synthetic_data = self._flatten(self.synthetic_data)
+        if 'actions' in self.original_data.columns:
+            self.original_data  = self._flatten(self.original_data)
 
-        if 'actions' in self.synthetic_data.columns:
-            self.synthetic_data = self.flatten_synthetic_data(self.synthetic_data)
-
-        # Si les données sont une ligne contenant 9 colonnes de dict
-        if isinstance(self.original_data.iloc[0, 0], dict):
-            all_actions = []
-            for col in self.original_data.columns:
-                for action in self.original_data[col]:
-                    all_actions.append({
-                        'id': action.get('id'),
-                        'timestamp': action.get('timestamp'),
-                        'verb': action.get('verb', {}).get('id'),
-                        'actor': action.get('actor', {}).get('mbox'),
-                        'object': action.get('object', {}).get('id'),
-                        'duration': action.get('duration', 0.0)
-                    })
-            self.original_data = pd.DataFrame(all_actions)
-
-    def ensure_dataframe(self, data):
+    def _ensure_df(self, data):
         if isinstance(data, pd.DataFrame):
-            return data
-        elif isinstance(data, dict):
+            return data.copy()
+        if isinstance(data, dict):
             return pd.DataFrame.from_dict(data)
-        elif isinstance(data, list):
+        if isinstance(data, list):
             return pd.DataFrame(data)
         return pd.DataFrame()
 
-    def convert_column_types(self, df, columns):
-        for column in columns:
-            if column in df.columns:
-                df[column] = df[column].apply(lambda x: str(x) if isinstance(x, (dict, list)) else x)
-        return df
+    def _flatten(self, df):
+        rows = []
+        for sess in df['actions']:
+            for action in sess:
+                rows.append({
+                    'id':        action.get('id'),
+                    'timestamp': action.get('timestamp'),
+                    'verb':      action.get('verb',   {}).get('id'),
+                    'actor':     action.get('actor',  {}).get('mbox'),
+                    'object':    action.get('object', {}).get('id'),
+                    'duration':  action.get('duration', 0.0)
+                })
+        return pd.DataFrame(rows)
 
-    def flatten_synthetic_data(self, synthetic_data):
-        if 'actions' in synthetic_data.columns:
-            flattened_data = []
-            for actions in synthetic_data['actions']:
-                for action in actions:
-                    flattened_data.append({
-                        'id': action.get('id'),
-                        'timestamp': action.get('timestamp'),
-                        'verb': action.get('verb', {}).get('id'),
-                        'actor': action.get('actor', {}).get('mbox'),
-                        'object': action.get('object', {}).get('id'),
-                        'duration': action.get('duration', 0.0)
-                    })
-            return pd.DataFrame(flattened_data)
-        return synthetic_data
+    def _categorize(self, value, thresholds, labels):
+        for thr, lab in zip(thresholds, labels):
+            if value < thr:
+                return lab
+        return labels[-1]
 
     def calculate_ksc(self):
-        df = self.original_data
-        synthetic_data = self.flatten_synthetic_data(self.synthetic_data)
-
-        if df.empty or synthetic_data.empty:
-            self.results_text.appendPlainText("Erreur : Données non disponibles.")
+        self.results_text.clear()
+        df    = self.original_data
+        synth = self.synthetic_data
+        if df.empty or synth.empty:
+            self.results_text.appendPlainText("Error: data not available.")
             return
 
-        categorical_columns = ['actor', 'verb', 'object']
-        ksc_scores = {}
+        cols = ['actor', 'verb', 'object']
+        df, _    = encode_categorical(df,    cols)
+        synth, _ = encode_categorical(synth, cols)
 
-        df = self.convert_column_types(df, categorical_columns)
-        synthetic_data = self.convert_column_types(synthetic_data, categorical_columns)
+        thresholds = [0.05, 0.1, 0.2]
+        labels     = ["Very Good", "Good", "Ok", "Bad"]
 
-        df, _ = encode_categorical(df, categorical_columns)
-        synthetic_data, _ = encode_categorical(synthetic_data, categorical_columns)
-
-        for column in categorical_columns:
-            if column in df.columns and column in synthetic_data.columns:
-                ksc_score = KSComplement.compute(real_data=df[column], synthetic_data=synthetic_data[column])
-                ksc_scores[column] = ksc_score
-                self.results_text.appendPlainText(f"KS Complement Score pour {column} : {ksc_score:.4f}")
-            else:
-                self.results_text.appendPlainText(f"Colonne '{column}' manquante dans les données.")
-
-        if ksc_scores:
-            self.plot_ksc_scores(ksc_scores)
+        for col in cols:
+            try:
+                score  = KSComplement.compute(real_data=df[col], synthetic_data=synth[col])
+                status = self._categorize(score, thresholds, labels)
+                self.results_text.appendPlainText(f"KS Complement for {col}: {score:.4f} [{status}]")
+            except Exception as e:
+                self.results_text.appendPlainText(f"Error KS {col}: {e}")
 
     def calculate_tvc(self):
-        df = self.original_data
-        synthetic_data = self.flatten_synthetic_data(self.synthetic_data)
-
-        if df.empty or synthetic_data.empty:
-            self.results_text.appendPlainText("Erreur : Données non disponibles.")
+        self.results_text.clear()
+        df    = self.original_data
+        synth = self.synthetic_data
+        if df.empty or synth.empty:
+            self.results_text.appendPlainText("Error: data not available.")
             return
 
-        categorical_columns = ['actor', 'verb', 'object']
-        tvc_scores = {}
+        cols = ['actor', 'verb', 'object']
+        df, _    = encode_categorical(df,    cols)
+        synth, _ = encode_categorical(synth, cols)
 
-        df = self.convert_column_types(df, categorical_columns)
-        synthetic_data = self.convert_column_types(synthetic_data, categorical_columns)
+        thresholds = [0.05, 0.1, 0.2]
+        labels     = ["Very Good", "Good", "Ok", "Bad"]
 
-        df, _ = encode_categorical(df, categorical_columns)
-        synthetic_data, _ = encode_categorical(synthetic_data, categorical_columns)
-
-        for column in categorical_columns:
-            if column in df.columns and column in synthetic_data.columns:
-                tvc_score = TVComplement.compute(real_data=df[column], synthetic_data=synthetic_data[column])
-                tvc_scores[column] = tvc_score
-                self.results_text.appendPlainText(f"TV Complement Score pour {column} : {tvc_score:.4f}")
-            else:
-                self.results_text.appendPlainText(f"Colonne '{column}' manquante dans les données.")
-
-        if tvc_scores:
-            self.plot_tvc_scores(tvc_scores)
-
-    def plot_ksc_scores(self, ksc_scores):
-        columns = list(ksc_scores.keys())
-        scores = list(ksc_scores.values())
-
-        plt.figure(figsize=(10, 6))
-        bars = plt.bar(columns, scores, color='skyblue')
-        plt.title("Scores KS Complement")
-        plt.xlabel("Colonnes")
-        plt.ylabel("Score KS Complement")
-        plt.ylim(0, 1)
-
-        for bar in bars:
-            yval = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width() / 2.0, yval, round(yval, 4), va='bottom')
-
-        plt.show()
-
-    def plot_tvc_scores(self, tvc_scores):
-        columns = list(tvc_scores.keys())
-        scores = list(tvc_scores.values())
-
-        plt.figure(figsize=(10, 6))
-        bars = plt.bar(columns, scores, color='lightcoral')
-        plt.title("Scores TV Complement")
-        plt.xlabel("Colonnes")
-        plt.ylabel("Score TV Complement")
-        plt.ylim(0, 1)
-
-        for bar in bars:
-            yval = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width() / 2.0, yval, round(yval, 4), va='bottom')
-
-        plt.show()
+        for col in cols:
+            try:
+                score  = TVComplement.compute(real_data=df[col], synthetic_data=synth[col])
+                status = self._categorize(score, thresholds, labels)
+                self.results_text.appendPlainText(f"TV Complement for {col}: {score:.4f} [{status}]")
+            except Exception as e:
+                self.results_text.appendPlainText(f"Error TV {col}: {e}")
 
     def calculate_verb_sequence_similarity(self):
-        df_real = self.ensure_dataframe(self.original_data)
-        df_synth = self.flatten_synthetic_data(self.synthetic_data)
-
-        if df_real.empty or df_synth.empty:
-            self.results_text.appendPlainText("Erreur : Données non disponibles.")
+        self.results_text.clear()
+        df_r = self.original_data.copy()
+        df_s = self.synthetic_data.copy()
+        if df_r.empty or df_s.empty:
+            self.results_text.appendPlainText("Error: data not available.")
             return
 
-        required_cols = ['actor', 'verb', 'timestamp']
-        for col in required_cols:
-            if col not in df_real.columns or col not in df_synth.columns:
-                self.results_text.appendPlainText(f"Erreur : Colonne manquante → {col}")
+        for col in ('actor','verb','timestamp'):
+            if col not in df_r or col not in df_s:
+                self.results_text.appendPlainText(f"Missing column: {col}")
                 return
 
-        df_real = df_real.dropna(subset=required_cols).copy()
-        df_synth = df_synth.dropna(subset=required_cols).copy()
+        df_r['timestamp'] = pd.to_datetime(df_r['timestamp'], errors='coerce')
+        df_s['timestamp'] = pd.to_datetime(df_s['timestamp'], errors='coerce')
+        df_r.dropna(subset=['timestamp'], inplace=True)
+        df_s.dropna(subset=['timestamp'], inplace=True)
+        df_r.sort_values(['actor','timestamp'], inplace=True)
+        df_s.sort_values(['actor','timestamp'], inplace=True)
 
-        df_real['timestamp'] = pd.to_datetime(df_real['timestamp'], errors='coerce')
-        df_synth['timestamp'] = pd.to_datetime(df_synth['timestamp'], errors='coerce')
+        def bigrams(seqs):
+            return [(seq[i], seq[i+1]) for seq in seqs for i in range(len(seq)-1)]
 
-        df_real = df_real.dropna(subset=['timestamp'])
-        df_synth = df_synth.dropna(subset=['timestamp'])
+        br = bigrams(df_r.groupby('actor')['verb'].apply(list))
+        bs = bigrams(df_s.groupby('actor')['verb'].apply(list))
+        cr = pd.Series(br).value_counts(normalize=True).head(10)
+        cs = pd.Series(bs).value_counts(normalize=True).head(10)
 
-        # 🔄 Extraire uniquement le nom du verbe (ex: 'viewed')
-        def extract_verb_name(v):
-            if isinstance(v, dict):
-                return v.get('id', '').split('/')[-1]
-            elif isinstance(v, str) and v.startswith("{"):
-                try:
-                    parsed = eval(v)
-                    return parsed.get('id', '').split('/')[-1]
-                except:
-                    return v.split('/')[-1]
-            elif isinstance(v, str):
-                return v.split('/')[-1]
-            return str(v)
+        self.results_text.appendPlainText("Top 10 real bigrams (%):")
+        for pair, pct in cr.items():
+            self.results_text.appendPlainText(f"  {pair}: {pct*100:.2f}%")
 
-        df_real['verb'] = df_real['verb'].apply(extract_verb_name)
-        df_synth['verb'] = df_synth['verb'].apply(extract_verb_name)
+        self.results_text.appendPlainText("\nTop 10 synth bigrams (%):")
+        for pair, pct in cs.items():
+            self.results_text.appendPlainText(f"  {pair}: {pct*100:.2f}%")
 
-        df_real['actor'] = df_real['actor'].astype(str)
-        df_synth['actor'] = df_synth['actor'].astype(str)
-
-        df_real.sort_values(by=['actor', 'timestamp'], inplace=True)
-        df_synth.sort_values(by=['actor', 'timestamp'], inplace=True)
-
-        real_seqs = df_real.groupby('actor')['verb'].apply(list).tolist()
-        synth_seqs = df_synth.groupby('actor')['verb'].apply(list).tolist()
-
-        def extract_bigrams(seqs):
-            return [(seq[i], seq[i + 1]) for seq in seqs for i in range(len(seq) - 1)]
-
-        real_bigrams = extract_bigrams(real_seqs)
-        synth_bigrams = extract_bigrams(synth_seqs)
-
-        from collections import Counter
-        real_counter = Counter(real_bigrams)
-        synth_counter = Counter(synth_bigrams)
-
-        top_real = real_counter.most_common(10)
-        top_synth = synth_counter.most_common(10)
-
-        total_real = sum(real_counter.values())
-        total_synth = sum(synth_counter.values())
-
-        self.results_text.appendPlainText("\n Top 10 real bigrams (normalized) :")
-        for pair, freq in top_real:
-            percent = (freq / total_real) * 100 if total_real else 0
-            self.results_text.appendPlainText(f"{pair} : {percent:.4f}%")
-
-        self.results_text.appendPlainText("\n Top 10 synthetic bigrams (normalized) :")
-        for pair, freq in top_synth:
-            percent = (freq / total_synth) * 100 if total_synth else 0
-            self.results_text.appendPlainText(f"{pair} : {percent:.4f}%")
-
-        real_set = set(pair for pair, _ in top_real)
-        synth_set = set(pair for pair, _ in top_synth)
-        intersection = real_set & synth_set
-        union = real_set | synth_set
-        jaccard = len(intersection) / len(union) if union else 0.0
-
-        self.results_text.appendPlainText(f"\n Jaccard similarity index (Top 10 bigrams) : {jaccard:.2f}")
+        jacc = len(set(cr.index)&set(cs.index)) / len(set(cr.index)|set(cs.index) or [1])
+        status = self._categorize(1 - jacc, [0.1,0.3,0.5], ["Very Good","Good","Ok","Bad"])
+        # Ici on inverse (1 - jacc) pour garder la logique « plus petit = meilleur »
+        self.results_text.appendPlainText(f"\nJaccard index (top10): {jacc:.2f} [{ 'Very Good' if jacc>0.8 else 'Good' if jacc>0.5 else 'Ok' if jacc>0.2 else 'Bad'}]")
 
     def plot_markov_transition_matrices(self):
-        df_real = self.ensure_dataframe(self.original_data)
-        df_synth = self.flatten_synthetic_data(self.synthetic_data)
-
-        if df_real.empty or df_synth.empty:
-            self.results_text.appendPlainText("Error : No available data.")
+        self.results_text.clear()
+        df_r = self.original_data.copy()
+        df_s = self.synthetic_data.copy()
+        if df_r.empty or df_s.empty:
+            self.results_text.appendPlainText("Error: data not available.")
             return
 
-        required_cols = ['actor', 'verb', 'timestamp']
-        for col in required_cols:
-            if col not in df_real.columns or col not in df_synth.columns:
-                self.results_text.appendPlainText(f"Error : Colonne manquante → {col}")
+        for col in ('actor','verb','timestamp'):
+            if col not in df_r or col not in df_s:
+                self.results_text.appendPlainText(f"Missing column: {col}")
                 return
 
-        df_real = df_real.dropna(subset=required_cols).copy()
-        df_synth = df_synth.dropna(subset=required_cols).copy()
-        df_real['timestamp'] = pd.to_datetime(df_real['timestamp'], errors='coerce')
-        df_synth['timestamp'] = pd.to_datetime(df_synth['timestamp'], errors='coerce')
-        df_real = df_real.dropna(subset=['timestamp'])
-        df_synth = df_synth.dropna(subset=['timestamp'])
+        df_r['timestamp'] = pd.to_datetime(df_r['timestamp'], errors='coerce')
+        df_s['timestamp'] = pd.to_datetime(df_s['timestamp'], errors='coerce')
+        df_r.dropna(subset=['timestamp'], inplace=True)
+        df_s.dropna(subset=['timestamp'], inplace=True)
 
-        def extract_verb_name(v):
-            if isinstance(v, dict):
-                return v.get('id', '').split('/')[-1]
-            elif isinstance(v, str) and v.startswith("{"):
-                try:
-                    parsed = eval(v)
-                    return parsed.get('id', '').split('/')[-1]
-                except:
-                    return v.split('/')[-1]
-            elif isinstance(v, str):
-                return v.split('/')[-1]
-            return str(v)
+        def transition_matrix(df):
+            df = df.sort_values(['actor','timestamp'])
+            seqs = df.groupby('actor')['verb'].apply(list)
+            pairs = [(seq[i], seq[i+1]) for seq in seqs for i in range(len(seq)-1)]
+            tdf = pd.DataFrame(pairs, columns=['from','to'])
+            return pd.crosstab(tdf['from'], tdf['to'], normalize='index').fillna(0)
 
-        df_real['verb'] = df_real['verb'].apply(extract_verb_name)
-        df_synth['verb'] = df_synth['verb'].apply(extract_verb_name)
-        df_real['actor'] = df_real['actor'].astype(str)
-        df_synth['actor'] = df_synth['actor'].astype(str)
+        M_r = transition_matrix(df_r)
+        M_s = transition_matrix(df_s)
+        verbs = sorted(set(M_r.index)|set(M_r.columns)|set(M_s.index)|set(M_s.columns))
+        M_r = M_r.reindex(index=verbs, columns=verbs, fill_value=0)
+        M_s = M_s.reindex(index=verbs, columns=verbs, fill_value=0)
 
-        def compute_transition_matrix(df):
-            df = df.sort_values(by=['actor', 'timestamp'])
-            verb_seqs = df.groupby('actor')['verb'].apply(list)
-
-            transitions = []
-            for seq in verb_seqs:
-                transitions += [(seq[i], seq[i + 1]) for i in range(len(seq) - 1)]
-
-            trans_df = pd.DataFrame(transitions, columns=['from', 'to'])
-            matrix = pd.crosstab(trans_df['from'], trans_df['to'], normalize='index')
-            return matrix.fillna(0)
-
-        real_matrix = compute_transition_matrix(df_real)
-        synth_matrix = compute_transition_matrix(df_synth)
-
-        verbs = sorted(set(real_matrix.index) | set(real_matrix.columns) |
-                       set(synth_matrix.index) | set(synth_matrix.columns))
-
-        real_matrix = real_matrix.reindex(index=verbs, columns=verbs, fill_value=0)
-        synth_matrix = synth_matrix.reindex(index=verbs, columns=verbs, fill_value=0)
-
-        # Heatmaps
-        fig, axs = plt.subplots(1, 2, figsize=(14, 6))
-        sns.heatmap(real_matrix, ax=axs[0], cmap="Blues", annot=False, fmt=".2f")
-        axs[0].set_title("Matrice de transition (Réelle)")
-        sns.heatmap(synth_matrix, ax=axs[1], cmap="Oranges", annot=False, fmt=".2f")
-        axs[1].set_title("Matrice de transition (Synthétique)")
+        fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+        sns.heatmap(M_r, ax=axes[0], cmap="Blues", cbar=False)
+        axes[0].set_title("Real transition")
+        sns.heatmap(M_s, ax=axes[1], cmap="Oranges", cbar=False)
+        axes[1].set_title("Synthetic transition")
         plt.tight_layout()
         plt.show()
 
-        # Distance globale L1
-        distance = np.abs(real_matrix.values - synth_matrix.values).sum()
-        self.results_text.appendPlainText(f"\nL1 divergence between transition matrices : {distance:.4f}")
+        dist = np.abs(M_r.values - M_s.values).sum()
+        status = self._categorize(dist, [0.1,0.5,1.0], ["Very Good","Good","Ok","Bad"])
+        self.results_text.appendPlainText(f"\nL1 divergence between matrices: {dist:.4f} [{status}]")
