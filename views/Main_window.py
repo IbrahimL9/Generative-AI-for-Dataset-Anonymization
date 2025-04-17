@@ -21,7 +21,7 @@ from controllers.save_controller import SaveController
 from views.Menu import Menu
 from views.pages.Open import Open
 from views.pages.New import New
-from views.pages.display_view import DisplayView
+#from views.pages.display_view import DisplayView  # removed direct import
 from views.pages.tools_view import ToolsView
 from views.pages.analysis_view import AnalysisView
 from views.pages.save_view import SaveView
@@ -80,23 +80,23 @@ class AnonymizationApp(QWidget):
 
         main_layout.addLayout(right_layout)
 
-        # --- Initialisation des vues et contrôleurs ---
+        # --- Initialize controllers and their views ---
         self.tools = ToolsView()
         self.tools_controller = ToolsController(self.tools)
-        self.display_controller = DisplayController(self.download_button, self)
+        self.display_controller = DisplayController(self, self.download_button)
         self.inspect_controller = InspectController(self.download_button, self)
         self.build_controller = BuildController(self, self.download_button, self.tools)
         self.generate_view = GenerateView(self)
         self.generate_controller = GenerateController(self, self.generate_view)
 
-        # ✅ Instanciation directe des vues monolithiques
         self.confidentiality_view = Confidentiality(self)
         self.fidelity_view = Fidelity(self)
 
         # --- Pages ---
         self.pages = {
             "open": Open(self.download_button),
-            "display": DisplayView(self.download_button, self),
+            # use the view from display_controller instead of direct instantiation
+            "display": self.display_controller.view,
             "inspect": self.inspect_controller.view,
             "new": New(self),
             "build": self.build_controller.view,
@@ -111,6 +111,7 @@ class AnonymizationApp(QWidget):
         self.analysis_controller = AnalysisController(self, self.pages["analysis"])
         self.save_controller = SaveController(self, self.pages["save"])
 
+        # Add pages to stacked_widget
         for page in self.pages.values():
             self.stacked_widget.addWidget(page)
 
@@ -120,14 +121,17 @@ class AnonymizationApp(QWidget):
         self.connect_signals()
 
     def connect_signals(self):
+        # model loading
         self.pages["new"].model_loaded.connect(self.pages["build"].on_model_loaded)
         self.pages["new"].model_loaded.connect(self.generate_controller.on_model_loaded)
         self.pages["open"].fileLoaded.connect(self.pages["generate"].on_file_loaded)
+        # data generated
         self.pages["generate"].data_generated_signal.connect(self.pages["save"].on_data_generated)
         self.pages["generate"].data_generated_signal.connect(self.pages["confidentiality"].on_data_generated)
         self.pages["generate"].data_generated_signal.connect(self.pages["fidelity"].on_data_generated)
-        self.download_button.file_loaded.connect(self.pages["display"].updateTable)
-        self.pages["generate"].data_generated_signal.connect(self.pages["save"].on_data_generated)
+        # display page load data
+        self.download_button.file_loaded.connect(self.display_controller.load_data)
+        # save controller
         self.pages["generate"].data_generated_signal.connect(self.save_controller.on_data_generated)
 
     def centerWindow(self):
@@ -145,7 +149,7 @@ class AnonymizationApp(QWidget):
 
     def changePage(self, page_key: str):
         if page_key in ["display", "inspect"] and (
-                not hasattr(self.download_button, 'json_data') or self.download_button.json_data is None
+                not self.download_button.json_data
         ):
             QMessageBox.warning(self, "File Not Downloaded", "Please download a file before accessing this page.")
             return
@@ -156,11 +160,9 @@ class AnonymizationApp(QWidget):
     def refresh_application(self):
         print("🔄 Application reset.")
         self.session_data = pd.DataFrame()
-
         for page in self.pages.values():
             if hasattr(page, 'reset'):
                 page.reset()
-
         self.menu.show_initial_submenu("Source", "Open file")
         self.menu.setCurrentRow(0)
         self.stacked_widget.setCurrentIndex(0)
@@ -168,12 +170,6 @@ class AnonymizationApp(QWidget):
         self.connect_signals()
         self.display_controller.load_data()
         self.inspect_controller.schedule_update()
-
-    def resetMenuSelection(self, index):
-        self.menu.blockSignals(True)
-        self.menu.setCurrentRow(index)
-        self.menu.blockSignals(False)
-        self.stacked_widget.setCurrentIndex(index)
 
     def get_open_page(self):
         return self.pages["open"]

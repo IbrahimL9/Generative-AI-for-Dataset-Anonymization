@@ -215,9 +215,14 @@ class Confidentiality(QWidget):
         # 5) Align columns after one-hot encoding
         common_encoded_cols = list(
             set(train_encoded.columns)
-            .intersection(holdout_encoded.columns)
-            .intersection(synthetic_encoded.columns)
+                .intersection(holdout_encoded.columns)
+                .intersection(synthetic_encoded.columns)
         )
+
+        if not common_encoded_cols:
+            self.results_text.appendPlainText(
+                "Error: No common encoded columns found between original and synthetic data.")
+            return
 
         train_encoded = train_encoded[common_encoded_cols]
         holdout_encoded = holdout_encoded[common_encoded_cols]

@@ -120,10 +120,12 @@ class DisplayView(QWidget):
         """)
         self.layout.addWidget(self.table)
 
-    def show_data(self, events, df):
+    def show_data(self, events, df, update_filters=True):
         self.main_app.processed_dataframe = df
-        self.populate_comboboxes(events)
+        if update_filters:
+            self.populate_comboboxes(events)
         self.populate_table(events)
+        self.table.scrollToTop()
 
     def populate_comboboxes(self, events):
         self.verb_combobox.clear()

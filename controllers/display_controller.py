@@ -1,7 +1,8 @@
+import pandas as pd
 from PyQt6.QtCore import QThread
 from models.display_model import UpdateWorker
 from views.pages.display_view import DisplayView
-
+from models.display_model import extract_name
 
 class DisplayController:
     def __init__(self, main_app, download_button):
@@ -59,10 +60,10 @@ class DisplayController:
 
         filtered = []
         for e in events:
-            actor = self.view.extract_name(e.get("actor", {}).get("mbox", ""))
-            verb = self.view.extract_name(e.get("verb", {}).get("id", ""))
+            actor = extract_name(e.get("actor", {}).get("mbox", ""))
+            verb = extract_name(e.get("verb", {}).get("id", ""))
             if (not selected_actor or selected_actor.lower() == actor.lower()) and \
-               (not selected_verb or selected_verb.lower() == verb.lower()):
+                    (not selected_verb or selected_verb.lower() == verb.lower()):
                 filtered.append(e)
 
         if max_events > 0:
@@ -71,4 +72,4 @@ class DisplayController:
         if not filtered:
             self.view.show_error("No events found for selected filters.")
         else:
-            self.view.populate_table(filtered)
+            self.view.show_data(filtered, pd.DataFrame(filtered), update_filters=False)

@@ -69,7 +69,7 @@ class GenerateController:
             self.view.show_message(f"Error while generating: {str(e)}", "error")
 
         self.view.generated_data = generated_data
-        self.view.data_generated_signal.emit(generated_data)  # ✅ EMISSION FINALE ICI
+        self.view.data_generated_signal.emit(generated_data)
 
     def on_model_loaded(self, model):
         self.main_app.model_instance = model

@@ -31,7 +31,7 @@ class GenerateView(QWidget):
         form_layout = QFormLayout()
         form_layout.setSpacing(10)
 
-        self.records_input_label = QLabel("Number of Data to Generate:")
+        self.records_input_label = QLabel("Number of Action to Generate:")
         self.records_input_label.setFont(QFont("Montserrat", 14))
         self.records_input_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.records_input = QLineEdit("1000")

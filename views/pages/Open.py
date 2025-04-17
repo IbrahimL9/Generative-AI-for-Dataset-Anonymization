@@ -38,7 +38,6 @@ class Open(QWidget):
 
         layout.addLayout(button_layout)
 
-        # 🔄 Ajout du label de chargement
         self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.loading_label)
 
@@ -48,12 +47,10 @@ class Open(QWidget):
 
     def handle_file_loaded(self):
         if self.json_data is None:
-            self.loading_label.setText("⏳ Chargement en cours...")  # 🟡 Message temporaire
-
-            # Retarde le signal + retire le message après 500ms
+            self.loading_label.setText("Data preprocessing in progress...")
             QTimer.singleShot(500, self.finish_loading)
 
     def finish_loading(self):
         self.json_data = self.download_button.json_data
-        self.loading_label.setText("")  # ✅ Nettoyage
+        self.loading_label.setText("")
         self.fileDownloaded.emit()
