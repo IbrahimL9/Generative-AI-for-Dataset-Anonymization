@@ -18,13 +18,12 @@ class TrainingThread(QThread):
 
     def run(self):
         for epoch in range(self.total_steps):
-            time.sleep(0.5)
             if epoch % 10 == 0:
                 self.update_progress(epoch)
-            if epoch == self.total_steps - 1:
-                self.model.fit(self.df)
-                self.model.fitted = True
-                self.training_finished.emit(self.model)
+
+        self.model.fit(self.df)
+        self.model.fitted = True
+        self.training_finished.emit(self.model)
 
     def update_progress(self, epoch):
         progress_msg = f"Gen. (0.83) | Discrim. (0.04): {int((epoch + 1) / self.total_steps * 100)}% | {'█' * (epoch // 20)}{' ' * (10 - epoch // 20)} | {epoch + 1}/{self.total_steps}"
@@ -61,7 +60,9 @@ class BuildModel:
         df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
         df['Actor'] = df['Actor'].astype(str)
         df = df.sort_values(by=['Actor', 'timestamp'])
-
+        print("=== Verbes fournis au modèle ===")
+        print(df['Verb'].value_counts())
+        print("================================")
         df['Duration'] = 0.0
         session_gap = 300
         estimated_duration = 60
@@ -90,6 +91,29 @@ class BuildModel:
     def create_model(self, df, params):
         metadata = SingleTableMetadata()
         metadata.detect_from_dataframe(df)
+
+        observed_verbs = df['Verb'].unique().tolist()
+        metadata.update_column(
+            column_name='Verb',
+            sdtype='categorical',
+            order=observed_verbs
+        )
+
+        observed_objects = df['Object'].unique().tolist()
+        metadata.update_column(
+            column_name='Object',
+            sdtype='categorical',
+            order=observed_objects
+        )
+
+        if 'session_id' in df.columns:
+            observed_sessions = df['session_id'].unique().tolist()
+            metadata.update_column(
+                column_name='session_id',
+                sdtype='categorical',
+                order=observed_sessions
+            )
+
         self.model = CTGANSynthesizer(
             metadata,
             epochs=params['epochs'],

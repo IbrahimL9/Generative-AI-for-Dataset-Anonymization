@@ -39,7 +39,6 @@ class GenerateController:
             return
 
         self.view.show_progress(True)
-        # Utiliser un timer pour simuler un délai et laisser l'UI afficher la barre de progression
         QTimer.singleShot(2000, lambda: self.finish_generation(num_records))
 
     def finish_generation(self, num_records):

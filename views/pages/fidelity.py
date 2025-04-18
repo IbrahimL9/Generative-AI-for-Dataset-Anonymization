@@ -163,8 +163,8 @@ class Fidelity(QWidget):
         df, _    = encode_categorical(df,    cols)
         synth, _ = encode_categorical(synth, cols)
 
-        thresholds = [0.05, 0.1, 0.2]
-        labels     = ["Very Good", "Good", "Ok", "Bad"]
+        thresholds = [0.01, 0.05, 0.1, 0.2]
+        labels = ["Excellent", "Very Good", "Good", "Ok", "Bad"]
 
         for col in cols:
             try:
@@ -186,8 +186,8 @@ class Fidelity(QWidget):
         df, _    = encode_categorical(df,    cols)
         synth, _ = encode_categorical(synth, cols)
 
-        thresholds = [0.05, 0.1, 0.2]
-        labels     = ["Very Good", "Good", "Ok", "Bad"]
+        thresholds = [0.01, 0.05, 0.1, 0.2]
+        labels = ["Excellent", "Very Good", "Good", "Ok", "Bad"]
 
         for col in cols:
             try:
@@ -233,10 +233,11 @@ class Fidelity(QWidget):
         for pair, pct in cs.items():
             self.results_text.appendPlainText(f"  {pair}: {pct*100:.2f}%")
 
-        jacc = len(set(cr.index)&set(cs.index)) / len(set(cr.index)|set(cs.index) or [1])
-        status = self._categorize(1 - jacc, [0.1,0.3,0.5], ["Very Good","Good","Ok","Bad"])
-        # Ici on inverse (1 - jacc) pour garder la logique « plus petit = meilleur »
-        self.results_text.appendPlainText(f"\nJaccard index (top10): {jacc:.2f} [{ 'Very Good' if jacc>0.8 else 'Good' if jacc>0.5 else 'Ok' if jacc>0.2 else 'Bad'}]")
+        jacc = len(set(cr.index) & set(cs.index)) / len(set(cr.index) | set(cs.index) or [1])
+        thresholds = [0.2, 0.5, 0.8, 0.95]
+        labels = ["Bad", "Ok", "Good", "Very Good", "Excellent"]
+        status = self._categorize(jacc, thresholds, labels)
+        self.results_text.appendPlainText(f"\nJaccard index (top10): {jacc:.2f} [{status}]")
 
     def plot_markov_transition_matrices(self):
         self.results_text.clear()
@@ -278,5 +279,5 @@ class Fidelity(QWidget):
         plt.show()
 
         dist = np.abs(M_r.values - M_s.values).sum()
-        status = self._categorize(dist, [0.1,0.5,1.0], ["Very Good","Good","Ok","Bad"])
+        status = self._categorize(dist, [5,10,20,40], ["Excellent","Good", "Ok", "Bad"])
         self.results_text.appendPlainText(f"\nL1 divergence between matrices: {dist:.4f} [{status}]")

@@ -150,8 +150,8 @@ class Confidentiality(QWidget):
             self.results_text.appendPlainText("Error: data not available.")
             return
 
-        thresholds = [0.05, 0.1, 0.2]
-        labels = ["Very Good", "Good", "Ok", "Bad"]
+        thresholds = [0.01, 0.05, 0.1, 0.2]
+        labels = ["Excellent", "Very Good", "Good", "Ok", "Bad"]
 
         def cramers_v(x, y):
             cm = pd.crosstab(x.astype(str), y.astype(str))
@@ -178,8 +178,8 @@ class Confidentiality(QWidget):
             self.results_text.appendPlainText("Error: data not available.")
             return
 
-        thresholds = [0.05, 0.1, 0.2]
-        labels = ["Very Good", "Good", "Ok", "Bad"]
+        thresholds = [0.01, 0.05, 0.1, 0.2]
+        labels = ["Excellent", "Very Good", "Good", "Ok", "Bad"]
 
         common = list(set(df.columns) & set(synth.columns))
         df2 = df[common].applymap(str)
@@ -208,8 +208,8 @@ class Confidentiality(QWidget):
             self.results_text.appendPlainText("Error: data not available.")
             return
 
-        thresholds = [0.1, 0.25, 0.5]
-        labels = ["Very Good", "Good", "Ok", "Bad"]
+        thresholds = [0.05, 0.1, 0.25, 0.5]
+        labels = ["Excellent", "Very Good", "Good", "Ok", "Bad"]
 
         orig = df.assign(origin=0)
         fake = synth.assign(origin=1)

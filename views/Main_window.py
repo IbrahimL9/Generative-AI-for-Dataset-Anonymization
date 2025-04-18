@@ -37,6 +37,7 @@ class AnonymizationApp(QWidget):
         self.session_data = pd.DataFrame()
         self.json_data = None
         self.initUI()
+        self.model_instance = None
 
     def initUI(self):
         self.setWindowTitle("Generative AI for Dataset Anonymization")
