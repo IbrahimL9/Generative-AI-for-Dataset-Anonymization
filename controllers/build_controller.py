@@ -42,23 +42,34 @@ class BuildController(QObject):
 
     def train_model(self):
         df, mode = self.get_data_and_mode()
-        if df is None:
+        if df is None or df.empty:
+            self.view.update_output("\u274c Données invalides ou vides. Veuillez charger un fichier JSON valide.")
             return
 
-        training_params = self.extract_training_params()
-        model = self.model_instance.create_model(df, training_params)
+        try:
+            training_params = self.extract_training_params()
+            model = self.model_instance.create_model(df, training_params)
 
-        self.training_thread = TrainingThread(model, df)
-        self.training_thread.progress_update.connect(self.view.update_output)
-        self.training_thread.training_finished.connect(self.training_done)
-        self.training_thread.start()
+            self.training_thread = TrainingThread(model, df)
+            self.training_thread.progress_update.connect(self.view.update_output)
+            self.training_thread.training_finished.connect(self.training_done)
+            self.training_thread.start()
+        except Exception as e:
+            self.view.update_output(f"\u274c Erreur pendant l'entraînement : {e}")
 
     def training_done(self, trained_model):
+        if trained_model is None:
+            self.view.update_output("The model was not trained.")
+            return
+
         self.model_instance.model = trained_model
-        self.view.update_output("\u2705 Training completed successfully!")
+        self.main_app.model_instance = trained_model
+        self.view.update_output("✅ Training completed successfully!")
         self.view.enable_save()
+
         if hasattr(self.main_app, "pages") and "generate" in self.main_app.pages:
             self.main_app.pages["generate"].on_model_loaded(trained_model)
+
 
     def save_model(self, file_path):
         try:

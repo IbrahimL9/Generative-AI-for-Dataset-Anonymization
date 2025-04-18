@@ -75,6 +75,7 @@ class GenerateModel:
         # Générer un DataFrame à partir du modèle (ici on suppose que trained_model.sample renvoie un DataFrame)
         df = trained_model.sample(num_records)
         df["Actor"] = df["Actor"].astype(str)
+        print(df["Verb"].value_counts())
 
         try:
             num_actors = int(users_input)
