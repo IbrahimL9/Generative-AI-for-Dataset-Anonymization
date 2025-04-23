@@ -1,8 +1,6 @@
 import pandas as pd
-import numpy as np
 import seaborn as sns
-import matplotlib.pyplot as plt
-
+import numpy as np
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
@@ -10,12 +8,13 @@ from PyQt6.QtWidgets import (
     QPushButton, QPlainTextEdit, QToolTip
 )
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import pairwise_distances, mean_squared_error
-from sklearn.ensemble import RandomForestClassifier
-
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 from sdmetrics.single_column import KSComplement, TVComplement
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
 
+# Fonction d'encodage des catégories en nombres
 def encode_categorical(df, columns):
     encoders = {}
     for col in columns:
@@ -24,13 +23,12 @@ def encode_categorical(df, columns):
         encoders[col] = le
     return df, encoders
 
-
 class Fidelity(QWidget):
     def __init__(self, main_app):
         super().__init__()
         self.main_app = main_app
         self.synthetic_data = pd.DataFrame()
-        self.original_data  = pd.DataFrame()
+        self.original_data = pd.DataFrame()
         self.initUI()
 
     def initUI(self):
@@ -54,7 +52,6 @@ class Fidelity(QWidget):
             "KS Complement measures the maximum distance between the real and synthetic CDFs.\n"
             "Values close to 0 indicate better fidelity."
         ))
-
         h1.addWidget(info1)
         layout.addLayout(h1)
 
@@ -69,7 +66,6 @@ class Fidelity(QWidget):
             "TV Complement (Total Variation) quantifies the total distance between distributions.\n"
             "Values close to 0 indicate better fidelity."
         ))
-
         h2.addWidget(info2)
         layout.addLayout(h2)
 
@@ -101,6 +97,16 @@ class Fidelity(QWidget):
         h4.addWidget(info4)
         layout.addLayout(h4)
 
+        # PCA Analysis
+        self.pca_button = QPushButton("Analyse de la variance (PCA)")
+        self.pca_button.setToolTip(
+            "Affiche la variance expliquée par composante principale.\n"
+            "Projette les données en 2D pour visualisation.\n"
+            "Utilise PCA pour détecter la structure latente."
+        )
+        self.pca_button.clicked.connect(self.perform_pca_analysis)
+        layout.addWidget(self.pca_button)
+
         layout.addSpacing(20)
         self.results_text = QPlainTextEdit()
         self.results_text.setReadOnly(True)
@@ -114,13 +120,13 @@ class Fidelity(QWidget):
         html = f"<b>{title}</b><br>{message.replace(chr(10), '<br>')}"
         QToolTip.showText(pos, html, btn)
 
-    def on_data_generated(self, synthetic_data):
-        self.synthetic_data = self._ensure_df(synthetic_data)
-        self.original_data  = self._ensure_df(self.main_app.json_data)
+    def on_data_generated(self):
+        self.synthetic_data = self._ensure_df(self.main_app.pages["generate"].generated_data)
+        self.original_data = self._ensure_df(self.main_app.pages["open"].json_data)
         if 'actions' in self.synthetic_data.columns:
             self.synthetic_data = self._flatten(self.synthetic_data)
         if 'actions' in self.original_data.columns:
-            self.original_data  = self._flatten(self.original_data)
+            self.original_data = self._flatten(self.original_data)
 
     def _ensure_df(self, data):
         if isinstance(data, pd.DataFrame):
@@ -136,12 +142,12 @@ class Fidelity(QWidget):
         for sess in df['actions']:
             for action in sess:
                 rows.append({
-                    'id':        action.get('id'),
+                    'id': action.get('id'),
                     'timestamp': action.get('timestamp'),
-                    'verb':      action.get('verb',   {}).get('id'),
-                    'actor':     action.get('actor',  {}).get('mbox'),
-                    'object':    action.get('object', {}).get('id'),
-                    'duration':  action.get('duration', 0.0)
+                    'verb': action.get('verb', {}).get('id'),
+                    'actor': action.get('actor', {}).get('mbox'),
+                    'object': action.get('object', {}).get('id'),
+                    'duration': action.get('duration', 0.0)
                 })
         return pd.DataFrame(rows)
 
@@ -153,14 +159,14 @@ class Fidelity(QWidget):
 
     def calculate_ksc(self):
         self.results_text.clear()
-        df    = self.original_data
+        df = self.original_data
         synth = self.synthetic_data
         if df.empty or synth.empty:
             self.results_text.appendPlainText("Error: data not available.")
             return
 
         cols = ['actor', 'verb', 'object']
-        df, _    = encode_categorical(df,    cols)
+        df, _ = encode_categorical(df, cols)
         synth, _ = encode_categorical(synth, cols)
 
         thresholds = [0.01, 0.05, 0.1, 0.2]
@@ -168,7 +174,7 @@ class Fidelity(QWidget):
 
         for col in cols:
             try:
-                score  = KSComplement.compute(real_data=df[col], synthetic_data=synth[col])
+                score = KSComplement.compute(real_data=df[col], synthetic_data=synth[col])
                 status = self._categorize(score, thresholds, labels)
                 self.results_text.appendPlainText(f"KS Complement for {col}: {score:.4f} [{status}]")
             except Exception as e:
@@ -176,14 +182,14 @@ class Fidelity(QWidget):
 
     def calculate_tvc(self):
         self.results_text.clear()
-        df    = self.original_data
+        df = self.original_data
         synth = self.synthetic_data
         if df.empty or synth.empty:
             self.results_text.appendPlainText("Error: data not available.")
             return
 
         cols = ['actor', 'verb', 'object']
-        df, _    = encode_categorical(df,    cols)
+        df, _ = encode_categorical(df, cols)
         synth, _ = encode_categorical(synth, cols)
 
         thresholds = [0.01, 0.05, 0.1, 0.2]
@@ -191,7 +197,7 @@ class Fidelity(QWidget):
 
         for col in cols:
             try:
-                score  = TVComplement.compute(real_data=df[col], synthetic_data=synth[col])
+                score = TVComplement.compute(real_data=df[col], synthetic_data=synth[col])
                 status = self._categorize(score, thresholds, labels)
                 self.results_text.appendPlainText(f"TV Complement for {col}: {score:.4f} [{status}]")
             except Exception as e:
@@ -205,7 +211,7 @@ class Fidelity(QWidget):
             self.results_text.appendPlainText("Error: data not available.")
             return
 
-        for col in ('actor','verb','timestamp'):
+        for col in ('actor', 'verb', 'timestamp'):
             if col not in df_r or col not in df_s:
                 self.results_text.appendPlainText(f"Missing column: {col}")
                 return
@@ -214,11 +220,11 @@ class Fidelity(QWidget):
         df_s['timestamp'] = pd.to_datetime(df_s['timestamp'], errors='coerce')
         df_r.dropna(subset=['timestamp'], inplace=True)
         df_s.dropna(subset=['timestamp'], inplace=True)
-        df_r.sort_values(['actor','timestamp'], inplace=True)
-        df_s.sort_values(['actor','timestamp'], inplace=True)
+        df_r.sort_values(['actor', 'timestamp'], inplace=True)
+        df_s.sort_values(['actor', 'timestamp'], inplace=True)
 
         def bigrams(seqs):
-            return [(seq[i], seq[i+1]) for seq in seqs for i in range(len(seq)-1)]
+            return [(seq[i], seq[i + 1]) for seq in seqs for i in range(len(seq) - 1)]
 
         br = bigrams(df_r.groupby('actor')['verb'].apply(list))
         bs = bigrams(df_s.groupby('actor')['verb'].apply(list))
@@ -227,11 +233,11 @@ class Fidelity(QWidget):
 
         self.results_text.appendPlainText("Top 10 real bigrams (%):")
         for pair, pct in cr.items():
-            self.results_text.appendPlainText(f"  {pair}: {pct*100:.2f}%")
+            self.results_text.appendPlainText(f"  {pair}: {pct * 100:.2f}%")
 
         self.results_text.appendPlainText("\nTop 10 synth bigrams (%):")
         for pair, pct in cs.items():
-            self.results_text.appendPlainText(f"  {pair}: {pct*100:.2f}%")
+            self.results_text.appendPlainText(f"  {pair}: {pct * 100:.2f}%")
 
         jacc = len(set(cr.index) & set(cs.index)) / len(set(cr.index) | set(cs.index) or [1])
         thresholds = [0.2, 0.5, 0.8, 0.95]
@@ -247,7 +253,7 @@ class Fidelity(QWidget):
             self.results_text.appendPlainText("Error: data not available.")
             return
 
-        for col in ('actor','verb','timestamp'):
+        for col in ('actor', 'verb', 'timestamp'):
             if col not in df_r or col not in df_s:
                 self.results_text.appendPlainText(f"Missing column: {col}")
                 return
@@ -258,15 +264,15 @@ class Fidelity(QWidget):
         df_s.dropna(subset=['timestamp'], inplace=True)
 
         def transition_matrix(df):
-            df = df.sort_values(['actor','timestamp'])
+            df = df.sort_values(['actor', 'timestamp'])
             seqs = df.groupby('actor')['verb'].apply(list)
-            pairs = [(seq[i], seq[i+1]) for seq in seqs for i in range(len(seq)-1)]
-            tdf = pd.DataFrame(pairs, columns=['from','to'])
+            pairs = [(seq[i], seq[i + 1]) for seq in seqs for i in range(len(seq) - 1)]
+            tdf = pd.DataFrame(pairs, columns=['from', 'to'])
             return pd.crosstab(tdf['from'], tdf['to'], normalize='index').fillna(0)
 
         M_r = transition_matrix(df_r)
         M_s = transition_matrix(df_s)
-        verbs = sorted(set(M_r.index)|set(M_r.columns)|set(M_s.index)|set(M_s.columns))
+        verbs = sorted(set(M_r.index) | set(M_r.columns) | set(M_s.index) | set(M_s.columns))
         M_r = M_r.reindex(index=verbs, columns=verbs, fill_value=0)
         M_s = M_s.reindex(index=verbs, columns=verbs, fill_value=0)
 
@@ -279,5 +285,119 @@ class Fidelity(QWidget):
         plt.show()
 
         dist = np.abs(M_r.values - M_s.values).sum()
-        status = self._categorize(dist, [5,10,20,40], ["Excellent","Good", "Ok", "Bad"])
+        status = self._categorize(dist, [5, 10, 20, 40], ["Excellent", "Good", "Ok", "Bad"])
         self.results_text.appendPlainText(f"\nL1 divergence between matrices: {dist:.4f} [{status}]")
+
+
+
+
+
+
+    def perform_pca_analysis(self):
+        real_df = self.original_data.copy()
+        synth_df = self.synthetic_data.copy()
+
+        # Log the initial state of the data
+        self.results_text.appendPlainText("\nÉtat initial des données réelles :")
+        self.results_text.appendPlainText(real_df.head().to_string(index=False))
+        self.results_text.appendPlainText("\nÉtat initial des données synthétiques :")
+        self.results_text.appendPlainText(synth_df.head().to_string(index=False))
+
+        if real_df.empty or synth_df.empty:
+            self.results_text.appendPlainText("Erreur : Données non disponibles pour PCA.")
+            return
+
+        columns = ['verb', 'actor', 'object', 'duration']
+        real_df = self.convert_column_types(real_df, columns)
+        synth_df = self.convert_column_types(synth_df, columns)
+
+        # Rename 'Duration' to 'duration' in real_df to match synth_df
+        if 'Duration' in real_df.columns:
+            real_df.rename(columns={'Duration': 'duration'}, inplace=True)
+
+        # Ensure both DataFrames have the same columns
+        for col in columns:
+            if col not in real_df.columns:
+                real_df[col] = np.nan
+            if col not in synth_df.columns:
+                synth_df[col] = np.nan
+
+        # Log the state after column type conversion
+        self.results_text.appendPlainText("\nÉtat après conversion des types de colonnes (réelles) :")
+        self.results_text.appendPlainText(real_df.head().to_string(index=False))
+        self.results_text.appendPlainText("\nÉtat après conversion des types de colonnes (synthétiques) :")
+        self.results_text.appendPlainText(synth_df.head().to_string(index=False))
+
+        real_df, _ = encode_categorical(real_df, ['verb', 'actor', 'object'])
+        synth_df, _ = encode_categorical(synth_df, ['verb', 'actor', 'object'])
+
+        # Log the state after categorical encoding
+        self.results_text.appendPlainText("\nÉtat après encodage catégoriel (réelles) :")
+        self.results_text.appendPlainText(real_df.head().to_string(index=False))
+        self.results_text.appendPlainText("\nÉtat après encodage catégoriel (synthétiques) :")
+        self.results_text.appendPlainText(synth_df.head().to_string(index=False))
+
+        real_df['dataset'] = 'original'
+        synth_df['dataset'] = 'synthetic'
+
+        combined_df = pd.concat([real_df, synth_df], ignore_index=True)
+        combined_df = combined_df.dropna(subset=columns)
+
+        # Log the state after concatenation
+        self.results_text.appendPlainText("\nÉtat après concaténation des données :")
+        self.results_text.appendPlainText(combined_df.head().to_string(index=False))
+
+        X = combined_df[columns].copy()
+        y = combined_df['dataset']
+
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+
+        # Set a random seed for reproducibility
+        np.random.seed(42)
+
+        pca = PCA(n_components=min(10, X_scaled.shape[1]), random_state=42)
+        components = pca.fit_transform(X_scaled)
+        explained_var = pca.explained_variance_ratio_
+
+        # Normalize components for better visualization
+        components = (components - components.mean(axis=0)) / components.std(axis=0)
+
+        # Projection 2D
+        if X_scaled.shape[1] >= 2:
+            plt.figure(figsize=(10, 8))
+            colors = ['blue', 'orange']
+            labels = ['original', 'synthetic']
+            sizes = [50, 100]  # Different sizes for better visibility
+            for label, color, size in zip(labels, colors, sizes):
+                idx = y == label
+                plt.scatter(components[idx, 0], components[idx, 1], label=label, alpha=0.6, color=color, s=size, edgecolors='w', linewidth=0.5)
+            plt.title("Projection 2D PCA : Réel vs Synthétique")
+            plt.xlabel("Composante 1")
+            plt.ylabel("Composante 2")
+            plt.legend()
+            plt.grid(True)
+            plt.tight_layout()
+            plt.show()
+
+        # Variance expliquée
+        cumulative_2D = np.sum(explained_var[:2])
+        cumulative_5D = np.sum(explained_var[:5])
+        self.results_text.appendPlainText(
+            f"\n📊 Variance expliquée :\n"
+            f"→ 2 dimensions : {cumulative_2D:.2%} de la variance\n"
+            f"→ 5 dimensions : {cumulative_5D:.2%} de la variance"
+        )
+
+        if cumulative_2D >= 0.45:
+            self.results_text.appendPlainText("✅ Une projection en 2D est suffisante pour comparer la structure des deux jeux de données.")
+        else:
+            self.results_text.appendPlainText("⚠️ La projection 2D perd trop d'information, utilisez plus de dimensions pour une meilleure comparaison.")
+
+
+
+    def convert_column_types(self, df, columns):
+        for column in columns:
+            if column in df.columns:
+                df[column] = df[column].apply(lambda x: str(x) if isinstance(x, (dict, list)) else x)
+        return df
