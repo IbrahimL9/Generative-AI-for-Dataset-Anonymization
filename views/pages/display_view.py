@@ -18,7 +18,7 @@ class DisplayView(QWidget):
     def initUI(self):
         self.layout = QVBoxLayout(self)
 
-        title = QLabel("Display Generated Data")
+        title = QLabel("Display Data")
         title.setFont(QFont("Montserrat", 18, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.layout.addWidget(title)
