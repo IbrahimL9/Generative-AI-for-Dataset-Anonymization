@@ -14,6 +14,7 @@ from sdmetrics.single_column import KSComplement, TVComplement
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 
+# Fonction d'encodage des catégories en nombres
 def encode_categorical(df, columns):
     encoders = {}
     for col in columns:
@@ -97,12 +98,13 @@ class Fidelity(QWidget):
         layout.addLayout(h4)
 
         # PCA Analysis
-        self.pca_button = QPushButton("Analyse de la variance (PCA)")
+        self.pca_button = QPushButton("Variance Analysis (PCA)")
         self.pca_button.setToolTip(
-            "Affiche la variance expliquée par composante principale.\n"
-            "Projette les données en 2D pour visualisation.\n"
-            "Utilise PCA pour détecter la structure latente."
-        )
+            "Displays the variance explained by each principal component.\n"
+            "Projects the data into 2D for visualization.\n"
+            "Uses PCA to detect latent structure."
+            )
+
         self.pca_button.clicked.connect(self.perform_pca_analysis)
         layout.addWidget(self.pca_button)
 
@@ -287,15 +289,10 @@ class Fidelity(QWidget):
         status = self._categorize(dist, [5, 10, 20, 40], ["Excellent", "Good", "Ok", "Bad"])
         self.results_text.appendPlainText(f"\nL1 divergence between matrices: {dist:.4f} [{status}]")
 
+
     def perform_pca_analysis(self):
         real_df = self.original_data.copy()
         synth_df = self.synthetic_data.copy()
-
-        # Log the initial state of the data
-        self.results_text.appendPlainText("\nInitial state of original data:")
-        self.results_text.appendPlainText(real_df.head().to_string(index=False))
-        self.results_text.appendPlainText("\nInitial state of synthetic data:")
-        self.results_text.appendPlainText(synth_df.head().to_string(index=False))
 
         if real_df.empty or synth_df.empty:
             self.results_text.appendPlainText("Error: Data not available for PCA.")
@@ -305,6 +302,10 @@ class Fidelity(QWidget):
         real_df = self.convert_column_types(real_df, columns)
         synth_df = self.convert_column_types(synth_df, columns)
 
+        # Rename 'Duration' to 'duration' in real_df to match synth_df
+        if 'Duration' in real_df.columns:
+            real_df.rename(columns={'Duration': 'duration'}, inplace=True)
+
         # Ensure both DataFrames have the same columns
         for col in columns:
             if col not in real_df.columns:
@@ -312,28 +313,17 @@ class Fidelity(QWidget):
             if col not in synth_df.columns:
                 synth_df[col] = np.nan
 
-        # Log after type conversion
-        self.results_text.appendPlainText("\nAfter column type conversion (original):")
-        self.results_text.appendPlainText(real_df.head().to_string(index=False))
-        self.results_text.appendPlainText("\nAfter column type conversion (synthetic):")
-        self.results_text.appendPlainText(synth_df.head().to_string(index=False))
+        
 
         real_df, _ = encode_categorical(real_df, ['verb', 'actor', 'object'])
         synth_df, _ = encode_categorical(synth_df, ['verb', 'actor', 'object'])
 
-        # Log after encoding
-        self.results_text.appendPlainText("\nAfter categorical encoding (original):")
-        self.results_text.appendPlainText(real_df.head().to_string(index=False))
-        self.results_text.appendPlainText("\nAfter categorical encoding (synthetic):")
-        self.results_text.appendPlainText(synth_df.head().to_string(index=False))
 
         real_df['dataset'] = 'original'
         synth_df['dataset'] = 'synthetic'
-        combined_df = pd.concat([real_df, synth_df], ignore_index=True).dropna(subset=columns)
 
-        # Log after concatenation
-        self.results_text.appendPlainText("\nAfter concatenating datasets:")
-        self.results_text.appendPlainText(combined_df.head().to_string(index=False))
+        combined_df = pd.concat([real_df, synth_df], ignore_index=True)
+        combined_df = combined_df.dropna(subset=columns)
 
         X = combined_df[columns].copy()
         y = combined_df['dataset']
@@ -341,46 +331,43 @@ class Fidelity(QWidget):
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
 
+        # Set a random seed for reproducibility
         np.random.seed(42)
+
         pca = PCA(n_components=min(10, X_scaled.shape[1]), random_state=42)
         components = pca.fit_transform(X_scaled)
         explained_var = pca.explained_variance_ratio_
 
-        # Normalize components for visualization
+        # Normalize components for better visualization
         components = (components - components.mean(axis=0)) / components.std(axis=0)
 
-        # 2D scatter projection (smaller figure)
+        # Projection 2D
         if X_scaled.shape[1] >= 2:
-            plt.figure(figsize=(8, 6))  # reduced size
-            for label, marker, size in zip(['original', 'synthetic'], ['o', 's'], [40, 80]):
+            plt.figure(figsize=(10, 8))
+            colors = ['blue', 'orange']
+            labels = ['original', 'synthetic']
+            sizes = [50, 100]  # Different sizes for better visibility
+            for label, color, size in zip(labels, colors, sizes):
                 idx = y == label
-                plt.scatter(components[idx, 0], components[idx, 1], label=label,
-                            alpha=0.6, s=size, edgecolors='w', linewidth=0.5)
-            plt.title("2D PCA Projection: Original vs Synthetic")
-            plt.xlabel("PC1")
-            plt.ylabel("PC2")
+                plt.scatter(components[idx, 0], components[idx, 1], label=label, alpha=0.6, color=color, s=size, edgecolors='w', linewidth=0.5)
+            plt.title(" 2D PCA Projection : Réel vs Synthétique")
+            plt.xlabel("Component 1")
+            plt.ylabel("Component 2")
             plt.legend()
             plt.grid(True)
             plt.tight_layout()
             plt.show()
 
-        # Explained variance summary
-        cum2 = explained_var[:2].sum()
-        cum5 = explained_var[:5].sum()
+        # Variance expliquée
+        cumulative_2D = np.sum(explained_var[:2])
+        cumulative_5D = np.sum(explained_var[:5])
         self.results_text.appendPlainText(
-            f"\nVariance explained:\n"
-            f"→ 2 components: {cum2:.2%}\n"
-            f"→ 5 components: {cum5:.2%}"
+            f"\n📊 Explained Variance :\n"
+            f"→ 2 dimensions : {cumulative_2D:.2%} of the variance\n"
+            f"→ 5 dimensions : {cumulative_5D:.2%} of the variance"
         )
 
-        if cum2 >= 0.45:
-            self.results_text.appendPlainText(
-                "✔️ 2D projection captures sufficient structure."
-            )
-        else:
-            self.results_text.appendPlainText(
-                "⚠️ 2D projection loses too much information; consider more dimensions."
-            )
+       
 
     def convert_column_types(self, df, columns):
         for column in columns:

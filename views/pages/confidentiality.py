@@ -95,9 +95,10 @@ class Confidentiality(QWidget):
     def show_dcr_info(self):
         self._show_info_dialog(
             "DCR Info",
-            "DCR (Distortion of Categorical Representation) quantifies how much the distribution\n"
-            "of categories in synthetic data deviates from the original.\n"
-            "Lower values mean less distortion (better utility)."
+            "DCR (Distortion of Categorical Representation) measures how closely synthetic data \n"
+"  replicates the category distributions of the real data.\n"
+            "A value that is too low may indicate overfitting and a potential privacy risk, while moderate\n"
+            " distortion helps preserve privacy by reducing similarity."
         )
 
     def show_pmse_info(self):
