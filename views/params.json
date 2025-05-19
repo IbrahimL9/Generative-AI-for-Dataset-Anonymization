@@ -1,0 +1,54 @@
+{
+    "p": {
+        "epochs": "450",
+        "batch_size": "128",
+        "gen_lr": "2e-4",
+        "disc_lr": "1e-4",
+        "embedding_dim": "64",
+        "generator_dim": "256,256,128",
+        "discriminator_dim": "256,256,128",
+        "pac": "5",
+        "data_to_generate": "0",
+        "verbose": "True",
+        "minmax": "True"
+    },
+    "H": {
+        "epochs": "300",
+        "batch_size": "64",
+        "gen_lr": "0.002",
+        "disc_lr": "0.002",
+        "embedding_dim": "128",
+        "generator_dim": "128,128",
+        "discriminator_dim": "256,256",
+        "pac": "1",
+        "data_to_generate": "2000",
+        "verbose": "True",
+        "minmax": "True"
+    },
+    "2": {
+        "epochs": "300",
+        "batch_size": "64",
+        "gen_lr": "0.002",
+        "disc_lr": "0.002",
+        "embedding_dim": "64",
+        "generator_dim": "64,64",
+        "discriminator_dim": "64,64",
+        "pac": "1",
+        "data_to_generate": "2000",
+        "verbose": "True",
+        "minmax": "True"
+    },
+    "3": {
+    "epochs": "500",
+    "batch_size": "64",
+    "gen_lr": "0.001",
+    "disc_lr": "0.001",
+    "embedding_dim": "64",
+    "generator_dim": "64,64",
+    "discriminator_dim": "64,64",
+    "pac": "1",
+    "data_to_generate": "2000",
+    "verbose": "True",
+    "minmax": "True"
+    }
+}

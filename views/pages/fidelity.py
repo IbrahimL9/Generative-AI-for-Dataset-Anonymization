@@ -50,7 +50,7 @@ class Fidelity(QWidget):
         info1.clicked.connect(lambda: self._show_info_tooltip(
             "KS Complement Info",
             "KS Complement measures the maximum distance between the real and synthetic CDFs.\n"
-            "Values close to 0 indicate better fidelity."
+            "Values close to 1 indicate better fidelity."
         ))
         h1.addWidget(info1)
         layout.addLayout(h1)
@@ -64,7 +64,7 @@ class Fidelity(QWidget):
         info2.clicked.connect(lambda: self._show_info_tooltip(
             "TV Complement Info",
             "TV Complement (Total Variation) quantifies the total distance between distributions.\n"
-            "Values close to 0 indicate better fidelity."
+            "Values close to 1 indicate better fidelity."
         ))
         h2.addWidget(info2)
         layout.addLayout(h2)
@@ -170,8 +170,8 @@ class Fidelity(QWidget):
         df, _ = encode_categorical(df, cols)
         synth, _ = encode_categorical(synth, cols)
 
-        thresholds = [0.01, 0.05, 0.1, 0.2]
-        labels = ["Excellent", "Very Good", "Good", "Ok", "Bad"]
+        thresholds = [0.40, 0.60, 0.80]
+        labels = ["Bad", "OK", "Good", "Excellent"]
 
         for col in cols:
             try:
@@ -193,8 +193,8 @@ class Fidelity(QWidget):
         df, _ = encode_categorical(df, cols)
         synth, _ = encode_categorical(synth, cols)
 
-        thresholds = [0.01, 0.05, 0.1, 0.2]
-        labels = ["Excellent", "Very Good", "Good", "Ok", "Bad"]
+        thresholds = [0.45, 0.70, 0.85]
+        labels = ["Bad", "OK", "Good", "Excellent"]
 
         for col in cols:
             try:
@@ -286,7 +286,7 @@ class Fidelity(QWidget):
         plt.show()
 
         dist = np.abs(M_r.values - M_s.values).sum()
-        status = self._categorize(dist, [5, 10, 20, 40], ["Excellent", "Good", "Ok", "Bad"])
+        status = self._categorize(dist, [1, 3, 7, 15],["Bad", "Ok", "Good", "Excellent"])
         self.results_text.appendPlainText(f"\nL1 divergence between matrices: {dist:.4f} [{status}]")
 
 
@@ -346,11 +346,11 @@ class Fidelity(QWidget):
             plt.figure(figsize=(10, 8))
             colors = ['blue', 'orange']
             labels = ['original', 'synthetic']
-            sizes = [50, 100]  # Different sizes for better visibility
+            sizes = [50, 100]
             for label, color, size in zip(labels, colors, sizes):
                 idx = y == label
                 plt.scatter(components[idx, 0], components[idx, 1], label=label, alpha=0.6, color=color, s=size, edgecolors='w', linewidth=0.5)
-            plt.title(" 2D PCA Projection : Réel vs Synthétique")
+            plt.title(" 2D PCA Projection : Real vs Synthetic")
             plt.xlabel("Component 1")
             plt.ylabel("Component 2")
             plt.legend()
@@ -362,7 +362,7 @@ class Fidelity(QWidget):
         cumulative_2D = np.sum(explained_var[:2])
         cumulative_5D = np.sum(explained_var[:5])
         self.results_text.appendPlainText(
-            f"\n📊 Explained Variance :\n"
+            f"\nExplained Variance :\n"
             f"→ 2 dimensions : {cumulative_2D:.2%} of the variance\n"
             f"→ 5 dimensions : {cumulative_5D:.2%} of the variance"
         )

@@ -23,9 +23,7 @@ class Confidentiality(QWidget):
         self.original_data = pd.DataFrame()
         self.initUI()
 
-    # ---------------------------------------------------------------------
-    # UI
-    # ---------------------------------------------------------------------
+
     def initUI(self):
         layout = QVBoxLayout(self)
         layout.addSpacing(30)
@@ -36,7 +34,7 @@ class Confidentiality(QWidget):
         layout.addWidget(title)
         layout.addSpacing(50)
 
-        # Cramer's V -------------------------------------------------------
+        # Cramer's V
         h1 = QHBoxLayout()
         self.cramers_v_button = QPushButton("Calculate Cramer's V", self)
         self.cramers_v_button.clicked.connect(self.calculate_cramers_v)
@@ -47,7 +45,6 @@ class Confidentiality(QWidget):
         h1.addWidget(info1)
         layout.addLayout(h1)
 
-        # DCR --------------------------------------------------------------
         h2 = QHBoxLayout()
         self.dcr_button = QPushButton("Calculate DCR", self)
         self.dcr_button.clicked.connect(self.calculate_dcr)
@@ -58,7 +55,6 @@ class Confidentiality(QWidget):
         h2.addWidget(info2)
         layout.addLayout(h2)
 
-        # pMSE -------------------------------------------------------------
         h3 = QHBoxLayout()
         self.pmse_button = QPushButton("Calculate pMSE", self)
         self.pmse_button.clicked.connect(self.calculate_pmse)
@@ -73,9 +69,7 @@ class Confidentiality(QWidget):
         self.results_text.setReadOnly(True)
         layout.addWidget(self.results_text)
 
-    # ------------------------------------------------------------------
-    # Tool‑tips helpers
-    # ------------------------------------------------------------------
+
     def _show_info_dialog(self, title: str, message: str):
         html = f"<b>{title}</b><br>{message.replace(chr(10), '<br>')}"
         btn = self.sender()
@@ -110,9 +104,7 @@ class Confidentiality(QWidget):
             "synthetic from real data, suggesting higher similarity but, if *too* low, potential disclosure risk."
         )
 
-    # ------------------------------------------------------------------
-    # Utility helpers
-    # ------------------------------------------------------------------
+
     @staticmethod
     def _categorize(value, thresholds, labels):
         """Return the first label whose threshold is strictly greater than *value*."""
@@ -121,9 +113,7 @@ class Confidentiality(QWidget):
                 return lab
         return labels[-1]
 
-    # ------------------------------------------------------------------
-    # Data preparation hooks (called externally)
-    # ------------------------------------------------------------------
+
     def on_data_generated(self, synthetic_data):
         self.synthetic_data = self._ensure_dataframe(synthetic_data)
         self.original_data = self._ensure_dataframe(self.main_app.json_data)
@@ -138,9 +128,7 @@ class Confidentiality(QWidget):
             return pd.DataFrame(data)
         return pd.DataFrame()
 
-    # ------------------------------------------------------------------
-    # Flatten helpers for nested xAPI‑like structures
-    # ------------------------------------------------------------------
+
     @staticmethod
     def _flatten(df: pd.DataFrame) -> pd.DataFrame:
         """Turn nested sessions/actions representations into a flat table."""
@@ -161,7 +149,6 @@ class Confidentiality(QWidget):
                     )
             return pd.DataFrame(rows)
 
-        # Case 2: DataFrame of actions with nested dicts -----------------------------
         if "actor" in df.columns and df["actor"].apply(lambda x: isinstance(x, dict)).any():
             rows = []
             for _, action in df.iterrows():
@@ -183,12 +170,9 @@ class Confidentiality(QWidget):
                 )
             return pd.DataFrame(rows)
 
-        # Otherwise: return as‑is ----------------------------------------------------
         return df.copy()
 
-    # ------------------------------------------------------------------
-    # CONFIDENTIALITY / UTILITY METRICS
-    # ------------------------------------------------------------------
+
     def calculate_cramers_v(self):
         self.results_text.clear()
         df, synth = self.original_data.copy(), self.synthetic_data.copy()
@@ -237,8 +221,8 @@ class Confidentiality(QWidget):
             if col in synth:
                 synth[col] = synth[col].fillna("").astype(str)
 
-        thresholds = [0.01, 0.05, 0.1, 0.2]
-        labels = ["Excellent", "Very Good", "Good", "Ok", "Bad"]
+        thresholds = [0.05, 0.10, 0.20, 0.30]
+        labels = ["Bad", "Ok", "Good", "Very Good", "Excellent"]
 
         for col in ("actor", "verb", "object"):
             if col not in df or col not in synth:
@@ -270,8 +254,8 @@ class Confidentiality(QWidget):
         y = comb.pop("origin")
         X = pd.get_dummies(comb, drop_first=False)
 
-        thresholds = [0.005, 0.01, 0.025, 0.05]  # Adapted to new 0‑0.25 range
-        labels = ["Excellent", "Very Good", "Good", "Ok", "Bad"]
+        thresholds = [0.04, 0.08, 0.14, 0.21]
+        labels = ["Bad", "Ok", "Good", "Very Good", "Excellent"]
 
         try:
             X_train, X_test, y_train, _ = train_test_split(
@@ -284,7 +268,7 @@ class Confidentiality(QWidget):
                 random_state=42,
             ).fit(X_train, y_train)
 
-            probs = clf.predict_proba(X_test)[:, 1]  # P(origin=1 | X)
+            probs = clf.predict_proba(X_test)[:, 1]
             pmse = np.mean((probs - 0.5) ** 2)
 
             status = self._categorize(pmse, thresholds, labels)
